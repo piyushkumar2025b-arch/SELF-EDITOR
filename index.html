@@ -1,0 +1,2915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Inkwell — Write Beautifully</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+<!-- Libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<!-- docx via CDN -->
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink:        #1a1a1f;
+    --ink-mid:    #2e2e36;
+    --ink-light:  #48484f;
+    --vellum:     #f7f4ee;
+    --vellum-dark:#ede9df;
+    --blue:       #2d4a7a;
+    --blue-light: #3d5f9a;
+    --gold:       #c9a84c;
+    --gold-light: #e2c373;
+    --red-soft:   #a84c4c;
+    --white:      #ffffff;
+    --sidebar-w:  260px;
+  }
+
+  html, body { height: 100%; overflow: hidden; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--ink);
+    color: var(--vellum);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── TOPBAR ─────────────────────────────────── */
+  #topbar {
+    height: 52px;
+    background: var(--ink-mid);
+    border-bottom: 1px solid rgba(201,168,76,.18);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    flex-shrink: 0;
+    z-index: 100;
+  }
+
+  .brand {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: .04em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+  .brand svg { opacity: .9; }
+
+  .title-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: 'Lora', serif;
+    font-size: .95rem;
+    color: var(--vellum);
+    placeholder-color: rgba(247,244,238,.35);
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(201,168,76,.25);
+    transition: border-color .2s;
+  }
+  .title-input::placeholder { color: rgba(247,244,238,.3); }
+  .title-input:focus { border-bottom-color: var(--gold); }
+
+  .topbar-meta {
+    font-size: .72rem;
+    color: rgba(247,244,238,.4);
+    letter-spacing: .02em;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .topbar-meta span { color: var(--gold-light); font-weight: 500; }
+
+  /* ── BODY LAYOUT ─────────────────────────────── */
+  #layout {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── TOOLBAR RIBBON ──────────────────────────── */
+  #toolbar {
+    width: 52px;
+    background: var(--ink-mid);
+    border-right: 1px solid rgba(201,168,76,.12);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 0;
+    gap: 4px;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .tb-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(201,168,76,.1);
+    width: 100%;
+  }
+  .tb-group:last-child { border-bottom: none; }
+
+  .tb-btn {
+    width: 36px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(247,244,238,.55);
+    font-size: .8rem;
+    font-weight: 600;
+    transition: background .15s, color .15s;
+    font-family: 'Lora', serif;
+    position: relative;
+  }
+  .tb-btn:hover {
+    background: rgba(201,168,76,.12);
+    color: var(--gold);
+  }
+  .tb-btn.active {
+    background: rgba(201,168,76,.18);
+    color: var(--gold);
+  }
+  .tb-btn[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 44px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--ink-mid);
+    border: 1px solid var(--gold);
+    color: var(--vellum);
+    font-family: 'Inter', sans-serif;
+    font-size: .68rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 200;
+    pointer-events: none;
+  }
+
+  .tb-sep { width: 24px; height: 1px; background: rgba(201,168,76,.12); margin: 4px 0; }
+
+  .font-size-ctrl {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .font-size-ctrl button {
+    width: 28px; height: 18px;
+    background: transparent; border: none; cursor: pointer;
+    color: rgba(247,244,238,.5); font-size: .65rem; border-radius: 3px;
+    transition: background .15s, color .15s;
+    line-height: 1;
+  }
+  .font-size-ctrl button:hover { background: rgba(201,168,76,.12); color: var(--gold); }
+  .font-size-ctrl span {
+    font-size: .62rem; color: rgba(247,244,238,.4); font-family: 'Inter', sans-serif;
+    min-width: 20px; text-align: center;
+  }
+
+  /* ── EDITOR AREA ─────────────────────────────── */
+  #editor-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #25252d;
+    overflow: hidden;
+  }
+
+  #page-wrap {
+    flex: 1;
+    overflow-y: auto;
+    padding: 40px 32px 60px;
+    display: flex;
+    justify-content: center;
+    background:
+      radial-gradient(ellipse at 20% 10%, rgba(45,74,122,.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 90%, rgba(201,168,76,.05) 0%, transparent 60%),
+      #25252d;
+  }
+
+  #page-wrap::-webkit-scrollbar { width: 6px; }
+  #page-wrap::-webkit-scrollbar-track { background: transparent; }
+  #page-wrap::-webkit-scrollbar-thumb { background: rgba(201,168,76,.2); border-radius: 3px; }
+
+  #page {
+    width: 100%;
+    max-width: 720px;
+    background: var(--vellum);
+    border-radius: 3px;
+    box-shadow:
+      0 2px 8px rgba(0,0,0,.35),
+      0 12px 40px rgba(0,0,0,.25),
+      0 0 0 1px rgba(201,168,76,.08);
+    padding: 64px 72px;
+    min-height: 900px;
+    position: relative;
+  }
+
+  /* subtle paper lines */
+  #page::before {
+    content: '';
+    position: absolute;
+    inset: 64px 72px;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent,
+      transparent 31px,
+      rgba(45,74,122,.06) 31px,
+      rgba(45,74,122,.06) 32px
+    );
+    pointer-events: none;
+    border-radius: 0;
+  }
+
+  #editor {
+    position: relative;
+    min-height: 800px;
+    font-family: 'Lora', serif;
+    font-size: 1.08rem;
+    line-height: 2rem; /* 32px — aligns to paper lines */
+    color: #1a1a1f;
+    outline: none;
+    caret-color: var(--blue);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #editor:empty::before {
+    content: attr(data-placeholder);
+    color: rgba(26,26,31,.28);
+    pointer-events: none;
+    font-style: italic;
+  }
+
+  /* ── EXPORT PANEL ────────────────────────────── */
+  #export-panel {
+    width: 240px;
+    background: var(--ink-mid);
+    border-left: 1px solid rgba(201,168,76,.12);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+
+  .ep-section {
+    padding: 16px;
+    border-bottom: 1px solid rgba(201,168,76,.08);
+  }
+  .ep-label {
+    font-size: .65rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: rgba(247,244,238,.3);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+
+  .export-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 9px 12px;
+    border: 1px solid rgba(201,168,76,.15);
+    border-radius: 7px;
+    background: rgba(247,244,238,.03);
+    color: var(--vellum);
+    font-family: 'Inter', sans-serif;
+    font-size: .8rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-bottom: 6px;
+    transition: background .15s, border-color .15s, transform .1s;
+    text-align: left;
+  }
+  .export-btn:hover {
+    background: rgba(201,168,76,.1);
+    border-color: rgba(201,168,76,.4);
+    transform: translateX(2px);
+  }
+  .export-btn:active { transform: translateX(1px) scale(.99); }
+  .export-btn .ext-badge {
+    font-size: .63rem;
+    font-weight: 700;
+    padding: 2px 5px;
+    border-radius: 3px;
+    letter-spacing: .04em;
+    flex-shrink: 0;
+    min-width: 38px;
+    text-align: center;
+  }
+  .badge-doc  { background: rgba(45,74,122,.5);  color: #90b4ff; border: 1px solid rgba(45,74,122,.6); }
+  .badge-pdf  { background: rgba(168,76,76,.5);   color: #ffaaaa; border: 1px solid rgba(168,76,76,.6); }
+  .badge-txt  { background: rgba(247,244,238,.12); color: #c8c4bb; border: 1px solid rgba(247,244,238,.2); }
+  .badge-md   { background: rgba(76,168,120,.4);  color: #90ffcc; border: 1px solid rgba(76,168,120,.5); }
+  .badge-png  { background: rgba(168,120,76,.4);  color: #ffd090; border: 1px solid rgba(168,120,76,.5); }
+  .badge-jpg  { background: rgba(120,76,168,.4);  color: #d0a0ff; border: 1px solid rgba(120,76,168,.5); }
+  .badge-html { background: rgba(201,168,76,.3);  color: #ffe080; border: 1px solid rgba(201,168,76,.4); }
+
+  /* Writing stats */
+  .stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: .75rem;
+    color: rgba(247,244,238,.45);
+    padding: 4px 0;
+  }
+  .stat-row span:last-child { color: var(--gold-light); font-weight: 500; }
+
+  /* Read-time bar */
+  .read-bar-wrap { margin-top: 8px; }
+  .read-bar-bg {
+    height: 3px;
+    background: rgba(247,244,238,.08);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .read-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--blue), var(--gold));
+    border-radius: 2px;
+    transition: width .4s ease;
+    min-width: 4px;
+  }
+
+  /* Theme picker */
+  .theme-dots {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .theme-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color .15s, transform .15s;
+    flex-shrink: 0;
+  }
+  .theme-dot:hover, .theme-dot.selected { border-color: var(--gold); transform: scale(1.15); }
+
+  .font-pick {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+  }
+  .font-opt {
+    padding: 6px 10px;
+    border: 1px solid rgba(201,168,76,.1);
+    border-radius: 5px;
+    background: transparent;
+    color: rgba(247,244,238,.6);
+    font-size: .8rem;
+    cursor: pointer;
+    text-align: left;
+    transition: background .15s, border-color .15s;
+  }
+  .font-opt:hover, .font-opt.selected {
+    background: rgba(201,168,76,.1);
+    border-color: var(--gold);
+    color: var(--vellum);
+  }
+
+  /* ── STATUS BAR ──────────────────────────────── */
+  #statusbar {
+    height: 28px;
+    background: var(--ink);
+    border-top: 1px solid rgba(201,168,76,.1);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 24px;
+    font-size: .67rem;
+    color: rgba(247,244,238,.35);
+    letter-spacing: .04em;
+    flex-shrink: 0;
+  }
+  #statusbar span { color: rgba(201,168,76,.7); }
+  #save-status { margin-left: auto; font-style: italic; }
+
+  /* ── TOAST ───────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 44px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--ink-mid);
+    border: 1px solid var(--gold);
+    color: var(--vellum);
+    font-size: .8rem;
+    padding: 10px 20px;
+    border-radius: 24px;
+    z-index: 999;
+    transition: transform .3s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+    opacity: 0;
+    pointer-events: none;
+    font-family: 'Inter', sans-serif;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+  /* ── LOADING OVERLAY ─────────────────────────── */
+  #loading {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(26,26,31,.7);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 12px;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.1rem;
+    color: var(--gold);
+  }
+  #loading.show { display: flex; }
+  .spinner {
+    width: 36px; height: 36px;
+    border: 3px solid rgba(201,168,76,.2);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Theme overrides on #page */
+  #page.theme-dark { background: #1e2028; }
+  #page.theme-dark #editor { color: #d4d0c8; }
+  #page.theme-dark::before {
+    background-image: repeating-linear-gradient(to bottom, transparent, transparent 31px, rgba(255,255,255,.03) 31px, rgba(255,255,255,.03) 32px);
+  }
+
+  #page.theme-sepia { background: #f0e6d0; }
+  #page.theme-sepia #editor { color: #3a2e1e; }
+  #page.theme-sepia::before {
+    background-image: repeating-linear-gradient(to bottom, transparent, transparent 31px, rgba(90,70,40,.07) 31px, rgba(90,70,40,.07) 32px);
+  }
+
+  #page.theme-slate { background: #e8edf4; }
+  #page.theme-slate #editor { color: #1a2030; }
+
+  #page.theme-mint { background: #e8f4f0; }
+  #page.theme-mint #editor { color: #1a302a; }
+
+  @media (max-width: 900px) {
+    #export-panel { display: none; }
+  }
+  @media (max-width: 640px) {
+    #page { padding: 32px 28px; }
+    #toolbar { display: none; }
+  }
+/* ══════════════════════════════════════════════════════════════
+   ADDED FEATURES — new styles appended (nothing above modified)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── FILTER PRESETS (page canvas filters) ─────────────────── */
+.filter-vintage   #page { filter: sepia(.35) contrast(1.05) saturate(1.1); }
+.filter-noir      #page { filter: grayscale(1) contrast(1.15); }
+.filter-warm      #page { filter: sepia(.15) saturate(1.25) brightness(1.02); }
+.filter-cool      #page { filter: hue-rotate(-8deg) saturate(1.1) brightness(1.02); }
+.filter-fade      #page { filter: contrast(.9) brightness(1.08) saturate(.85); }
+.filter-crisp     #page { filter: contrast(1.2) saturate(1.15); }
+
+.swatch-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch-btn {
+  padding: 6px 10px;
+  font-size: .68rem;
+  font-family: 'Inter', sans-serif;
+  color: rgba(247,244,238,.7);
+  background: rgba(247,244,238,.04);
+  border: 1px solid rgba(201,168,76,.15);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.swatch-btn:hover, .swatch-btn.selected {
+  background: rgba(201,168,76,.16);
+  border-color: var(--gold);
+  color: var(--gold-light);
+}
+
+/* ── TEXT EFFECTS ─────────────────────────────────────────── */
+.fx-shadow   { text-shadow: 1px 2px 3px rgba(0,0,0,.35); }
+.fx-glow     { text-shadow: 0 0 8px rgba(201,168,76,.85), 0 0 2px rgba(201,168,76,.6); }
+.fx-outline  { -webkit-text-stroke: .6px var(--ink); }
+.fx-gradient {
+  background: linear-gradient(90deg, #c9a84c, #a84c4c, #2d4a7a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.fx-highlight-gold  { background: rgba(201,168,76,.35); padding: 0 2px; border-radius: 2px; }
+.fx-highlight-mint  { background: rgba(90,200,150,.32); padding: 0 2px; border-radius: 2px; }
+.fx-highlight-blue  { background: rgba(61,95,154,.32); padding: 0 2px; border-radius: 2px; }
+.fx-uppercase { text-transform: uppercase; letter-spacing: .06em; }
+.fx-smallcaps { font-variant: small-caps; }
+.fx-letterspace { letter-spacing: .12em; }
+
+/* ── EMOJI PANEL ──────────────────────────────────────────── */
+#emoji-popover {
+  position: fixed;
+  display: none;
+  width: 268px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--ink-mid);
+  border: 1px solid rgba(201,168,76,.3);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  padding: 10px;
+  z-index: 500;
+}
+#emoji-popover.show { display: block; }
+#emoji-popover .ep-mini-label {
+  font-size: .62rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(247,244,238,.35);
+  margin: 8px 2px 6px;
+}
+#emoji-popover .ep-mini-label:first-child { margin-top: 0; }
+.emoji-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.emoji-cell {
+  font-size: 1.1rem;
+  padding: 5px 0;
+  text-align: center;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background .12s, transform .1s;
+  background: transparent;
+  border: none;
+}
+.emoji-cell:hover { background: rgba(201,168,76,.18); transform: scale(1.15); }
+
+.emoji-suggest-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(201,168,76,.12);
+}
+.emoji-suggest-chip {
+  font-size: 1rem;
+  background: rgba(201,168,76,.12);
+  border: 1px solid rgba(201,168,76,.25);
+  border-radius: 6px;
+  padding: 3px 7px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.emoji-suggest-chip:hover { background: rgba(201,168,76,.28); }
+
+#emoji-nudge {
+  position: fixed;
+  display: none;
+  background: var(--ink-mid);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  padding: 4px 6px;
+  gap: 4px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.4);
+  z-index: 480;
+}
+#emoji-nudge.show { display: flex; }
+#emoji-nudge button {
+  background: transparent; border: none; font-size: 1.05rem;
+  cursor: pointer; border-radius: 5px; padding: 2px 4px;
+}
+#emoji-nudge button:hover { background: rgba(201,168,76,.2); }
+
+/* ── WORD SUGGESTOR ───────────────────────────────────────── */
+#word-suggest-box {
+  position: fixed;
+  display: none;
+  background: var(--ink-mid);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  overflow: hidden;
+  z-index: 490;
+  min-width: 140px;
+}
+#word-suggest-box.show { display: block; }
+.ws-item {
+  padding: 7px 12px;
+  font-family: 'Lora', serif;
+  font-size: .85rem;
+  color: var(--vellum);
+  cursor: pointer;
+  transition: background .12s;
+}
+.ws-item:hover, .ws-item.hi { background: rgba(201,168,76,.22); }
+
+/* ── TRANSLATOR ───────────────────────────────────────────── */
+.translator-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.translator-row select {
+  flex: 1;
+  background: rgba(247,244,238,.05);
+  border: 1px solid rgba(201,168,76,.2);
+  color: var(--vellum);
+  font-family: 'Inter', sans-serif;
+  font-size: .72rem;
+  padding: 6px 6px;
+  border-radius: 6px;
+}
+.translate-out {
+  margin-top: 8px;
+  background: rgba(247,244,238,.04);
+  border: 1px solid rgba(201,168,76,.15);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: 'Lora', serif;
+  font-size: .8rem;
+  color: rgba(247,244,238,.85);
+  min-height: 40px;
+  max-height: 140px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+}
+.mini-btn {
+  padding: 6px 10px;
+  font-size: .7rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  color: var(--gold-light);
+  background: rgba(201,168,76,.1);
+  border: 1px solid rgba(201,168,76,.3);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background .15s;
+  width: 100%;
+}
+.mini-btn:hover { background: rgba(201,168,76,.22); }
+
+/* ── LIVE CLOCK WIDGET (present time, panel version) ─────── */
+.clock-widget { text-align: center; padding: 6px 0 2px; }
+.clock-widget .cw-time {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  color: var(--gold-light);
+  letter-spacing: .03em;
+}
+.clock-widget .cw-date {
+  font-size: .68rem;
+  color: rgba(247,244,238,.4);
+  margin-top: 2px;
+  letter-spacing: .03em;
+}
+
+/* ── PAGE EDITING OPTIONS (margins / spacing / page size) ─── */
+.range-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.range-row input[type="range"] { flex: 1; accent-color: var(--gold); }
+.range-row .range-val { font-size: .68rem; color: rgba(247,244,238,.5); min-width: 34px; text-align: right; }
+
+.page-size-row { display: flex; gap: 6px; }
+.page-size-row .swatch-btn { flex: 1; text-align: center; }
+
+#page.psize-a4      { max-width: 720px; }
+#page.psize-letter   { max-width: 700px; }
+#page.psize-narrow   { max-width: 560px; }
+#page.psize-wide     { max-width: 880px; }
+
+/* ── SAVE & DOWNLOAD BAR ──────────────────────────────────── */
+.save-download-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 12px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 100%);
+  color: var(--ink);
+  font-family: 'Inter', sans-serif;
+  font-size: .82rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .15s;
+  box-shadow: 0 4px 14px rgba(201,168,76,.25);
+}
+.save-download-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(201,168,76,.4); }
+.save-download-btn:active { transform: translateY(0); }
+
+.sd-format-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 10px; }
+.sd-format-row .swatch-btn { flex: 1; min-width: 56px; text-align: center; }
+
+.ep-collapse-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+.ep-collapse-head .chev { transition: transform .2s; color: rgba(247,244,238,.4); font-size: .7rem; }
+.ep-collapse-head.open .chev { transform: rotate(90deg); }
+.ep-collapse-body { display: none; margin-top: 10px; }
+.ep-collapse-body.open { display: block; }
+
+@media (max-width: 900px) {
+  #emoji-popover, #word-suggest-box { max-width: 90vw; }
+}
+
+/* ── QUICK ACCESS BAR (top of export panel) ──────────────── */
+#ep-quickbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--ink-mid);
+  padding: 14px 16px 12px;
+  border-bottom: 2px solid rgba(201,168,76,.3);
+  box-shadow: 0 6px 14px rgba(0,0,0,.25);
+}
+.qb-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.qb-chip {
+  flex: 1;
+  min-width: 60px;
+  padding: 6px 4px;
+  font-size: .64rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  color: var(--vellum);
+  background: rgba(247,244,238,.05);
+  border: 1px solid rgba(201,168,76,.2);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition: background .15s, border-color .15s;
+}
+.qb-chip:hover { background: rgba(201,168,76,.18); border-color: var(--gold); }
+
+.jump-flash {
+  animation: jumpFlash 1.1s ease;
+}
+@keyframes jumpFlash {
+  0%   { background: rgba(201,168,76,.28); }
+  100% { background: transparent; }
+}
+
+/* ── COLOR POPOVER ────────────────────────────────────────── */
+#color-popover {
+  position: fixed;
+  display: none;
+  width: 210px;
+  background: var(--ink-mid);
+  border: 1px solid rgba(201,168,76,.3);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  padding: 10px;
+  z-index: 500;
+}
+#color-popover.show { display: block; }
+.color-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-bottom: 8px; }
+.color-swatch {
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  cursor: pointer;
+  border: 1px solid rgba(255,255,255,.15);
+  transition: transform .1s;
+}
+.color-swatch:hover { transform: scale(1.15); }
+.color-custom-row { display: flex; align-items: center; gap: 6px; }
+.color-custom-row input[type="color"] {
+  width: 32px; height: 26px; border: none; border-radius: 5px; cursor: pointer; background: transparent; padding: 0;
+}
+.color-custom-row button { flex: 1; }
+
+/* ── TABLE GRID POPOVER ───────────────────────────────────── */
+#table-grid-popover {
+  position: fixed;
+  display: none;
+  background: var(--ink-mid);
+  border: 1px solid rgba(201,168,76,.3);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  padding: 12px;
+  z-index: 500;
+}
+#table-grid-popover.show { display: block; }
+.tg-grid { display: grid; grid-template-columns: repeat(6, 18px); grid-template-rows: repeat(6, 18px); gap: 3px; margin-bottom: 8px; }
+.tg-cell { background: rgba(247,244,238,.08); border: 1px solid rgba(201,168,76,.15); border-radius: 2px; cursor: pointer; }
+.tg-cell.hi { background: rgba(201,168,76,.45); border-color: var(--gold); }
+.tg-label { font-size: .68rem; color: rgba(247,244,238,.5); text-align: center; }
+
+/* ── SPECIAL CHARACTER POPOVER ────────────────────────────── */
+#specialchar-popover {
+  position: fixed;
+  display: none;
+  width: 250px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--ink-mid);
+  border: 1px solid rgba(201,168,76,.3);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  padding: 10px;
+  z-index: 500;
+}
+#specialchar-popover.show { display: block; }
+.sc-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; }
+.sc-cell {
+  font-size: .95rem;
+  padding: 5px 0;
+  text-align: center;
+  border-radius: 5px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--vellum);
+  font-family: 'Lora', serif;
+  transition: background .12s;
+}
+.sc-cell:hover { background: rgba(201,168,76,.2); }
+
+/* ── FIND & REPLACE BAR ───────────────────────────────────── */
+#find-replace-bar {
+  position: fixed;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink-mid);
+  border: 1px solid var(--gold);
+  border-radius: 9px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.45);
+  padding: 8px 10px;
+  z-index: 510;
+  flex-wrap: wrap;
+  max-width: 92vw;
+}
+#find-replace-bar.show { display: flex; }
+#find-replace-bar input {
+  background: rgba(247,244,238,.06);
+  border: 1px solid rgba(201,168,76,.2);
+  color: var(--vellum);
+  font-family: 'Inter', sans-serif;
+  font-size: .78rem;
+  padding: 6px 9px;
+  border-radius: 6px;
+  width: 130px;
+}
+
+/* ── CODE BLOCK & CHECKLIST rendering inside editor ───────── */
+#editor pre.inkwell-code {
+  background: #1e2028;
+  color: #d7e0ea;
+  font-family: 'Courier New', monospace;
+  font-size: .85rem;
+  padding: 14px 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 14px 0;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+#editor ul.inkwell-checklist { list-style: none; padding-left: 4px; margin: 10px 0; }
+#editor ul.inkwell-checklist li { display: flex; align-items: flex-start; gap: 8px; margin: 4px 0; }
+#editor ul.inkwell-checklist li input[type="checkbox"] { margin-top: 5px; accent-color: var(--gold); cursor: pointer; }
+#editor ul.inkwell-checklist li.done span { text-decoration: line-through; opacity: .55; }
+#editor a { color: var(--blue); text-decoration: underline; }
+
+/* ══════════════════════════════════════════════════════════════
+   ADDED (round 3) — Focus Mode, Outline Navigator, Writing Goal,
+   Version History, Read Aloud, Pomodoro Timer, Shortcuts Modal,
+   quick document actions. All appended, nothing above modified.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── FOCUS MODE ────────────────────────────────────────────── */
+body.focus-mode #toolbar,
+body.focus-mode #export-panel,
+body.focus-mode #statusbar { display: none !important; }
+body.focus-mode #topbar { opacity: .35; transition: opacity .25s; }
+body.focus-mode #topbar:hover { opacity: 1; }
+body.focus-mode #page-wrap { padding-top: 64px; }
+body.focus-mode #page { box-shadow: 0 20px 70px rgba(0,0,0,.5); }
+#focus-exit-hint {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: .68rem;
+  color: rgba(247,244,238,.35);
+  font-family: 'Inter', sans-serif;
+  letter-spacing: .03em;
+  display: none;
+  z-index: 40;
+}
+body.focus-mode #focus-exit-hint { display: block; }
+
+/* ── OUTLINE NAVIGATOR ─────────────────────────────────────── */
+#outline-list { display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
+.outline-item {
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: rgba(247,244,238,.6);
+  font-family: 'Inter', sans-serif;
+  font-size: .76rem;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background .15s, color .15s;
+}
+.outline-item:hover { background: rgba(201,168,76,.12); color: var(--gold-light); }
+.outline-item.lvl-1 { font-weight: 700; color: rgba(247,244,238,.85); }
+.outline-item.lvl-2 { padding-left: 18px; }
+.outline-item.lvl-3 { padding-left: 30px; font-size: .72rem; opacity: .85; }
+.outline-empty { font-size: .72rem; color: rgba(247,244,238,.3); font-style: italic; padding: 4px 8px; }
+
+/* ── WRITING GOAL ──────────────────────────────────────────── */
+.goal-setup-row { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+.goal-setup-row input[type="number"] {
+  width: 70px;
+  background: rgba(247,244,238,.05);
+  border: 1px solid rgba(201,168,76,.2);
+  color: var(--vellum);
+  font-family: 'Inter', sans-serif;
+  font-size: .78rem;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.goal-ring-wrap { display: flex; align-items: center; gap: 14px; }
+.goal-ring-wrap svg { flex-shrink: 0; }
+.goal-ring-track { fill: none; stroke: rgba(247,244,238,.08); stroke-width: 6; }
+.goal-ring-fill { fill: none; stroke: url(#goalGradient); stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset .5s ease; }
+.goal-ring-text { font-family: 'Playfair Display', serif; font-size: .95rem; fill: var(--gold-light); text-anchor: middle; }
+.goal-stat-line { font-size: .72rem; color: rgba(247,244,238,.5); }
+.goal-stat-line b { color: var(--gold-light); font-weight: 600; }
+.goal-complete-msg { font-size: .72rem; color: #90ffcc; margin-top: 6px; display: none; }
+.goal-complete-msg.show { display: block; }
+
+/* ── VERSION HISTORY ───────────────────────────────────────── */
+#version-list { display: flex; flex-direction: column; gap: 6px; max-height: 240px; overflow-y: auto; margin-top: 4px; }
+.version-item {
+  border: 1px solid rgba(201,168,76,.15);
+  border-radius: 7px;
+  padding: 8px 10px;
+  background: rgba(247,244,238,.03);
+}
+.version-item .vi-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px; }
+.version-item .vi-time { font-size: .7rem; color: var(--gold-light); font-weight: 600; }
+.version-item .vi-words { font-size: .65rem; color: rgba(247,244,238,.4); }
+.version-item .vi-preview {
+  font-size: .68rem;
+  color: rgba(247,244,238,.5);
+  font-family: 'Lora', serif;
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 6px;
+}
+.version-item .vi-actions { display: flex; gap: 6px; }
+.version-item .vi-actions button {
+  flex: 1;
+  padding: 4px 6px;
+  font-size: .65rem;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid rgba(201,168,76,.25);
+  background: rgba(201,168,76,.08);
+  color: var(--gold-light);
+}
+.version-item .vi-actions button.vi-delete { color: #ffaaaa; border-color: rgba(168,76,76,.35); background: rgba(168,76,76,.1); }
+.version-empty { font-size: .72rem; color: rgba(247,244,238,.3); font-style: italic; }
+
+/* ── READ ALOUD ────────────────────────────────────────────── */
+.ra-controls { display: flex; gap: 6px; margin-bottom: 8px; }
+.ra-controls button {
+  flex: 1;
+  padding: 8px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(201,168,76,.25);
+  background: rgba(201,168,76,.08);
+  color: var(--gold-light);
+  font-size: .8rem;
+  cursor: pointer;
+}
+.ra-controls button:hover { background: rgba(201,168,76,.18); }
+.ra-controls button.active { background: rgba(201,168,76,.3); color: var(--ink); background-color: var(--gold); }
+.ra-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.ra-row label { font-size: .68rem; color: rgba(247,244,238,.5); min-width: 42px; }
+.ra-row select { flex: 1; background: rgba(247,244,238,.05); border: 1px solid rgba(201,168,76,.2); color: var(--vellum); font-size: .72rem; padding: 5px 6px; border-radius: 6px; }
+.ra-row input[type="range"] { flex: 1; accent-color: var(--gold); }
+
+/* ── POMODORO TIMER ────────────────────────────────────────── */
+.pomo-display { text-align: center; padding: 8px 0 4px; }
+.pomo-time { font-family: 'Playfair Display', serif; font-size: 2.1rem; color: var(--gold-light); letter-spacing: .02em; }
+.pomo-label { font-size: .68rem; color: rgba(247,244,238,.4); text-transform: uppercase; letter-spacing: .08em; margin-top: 2px; }
+.pomo-controls { display: flex; gap: 6px; margin-top: 10px; }
+.pomo-controls button {
+  flex: 1;
+  padding: 7px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(201,168,76,.25);
+  background: rgba(201,168,76,.08);
+  color: var(--gold-light);
+  font-size: .75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pomo-controls button:hover { background: rgba(201,168,76,.18); }
+.pomo-sessions { text-align: center; font-size: .68rem; color: rgba(247,244,238,.4); margin-top: 8px; }
+.pomo-sessions span { color: var(--gold-light); font-weight: 600; }
+
+/* ── GENERIC MODAL (shortcuts / templates) ────────────────── */
+.iw-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 600;
+}
+.iw-modal-overlay.show { display: flex; }
+.iw-modal {
+  width: 420px;
+  max-width: 92vw;
+  max-height: 82vh;
+  overflow-y: auto;
+  background: var(--ink-mid);
+  border: 1px solid rgba(201,168,76,.35);
+  border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.5);
+  padding: 22px 24px;
+}
+.iw-modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.iw-modal-head h3 { font-family: 'Playfair Display', serif; color: var(--gold); font-size: 1.1rem; font-weight: 700; }
+.iw-modal-close { background: none; border: none; color: rgba(247,244,238,.5); font-size: 1.1rem; cursor: pointer; }
+.iw-modal-close:hover { color: var(--gold); }
+.shortcut-row { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid rgba(201,168,76,.08); font-size: .8rem; color: rgba(247,244,238,.75); }
+.shortcut-row:last-child { border-bottom: none; }
+.kbd { font-family: 'Courier New', monospace; background: rgba(247,244,238,.08); border: 1px solid rgba(201,168,76,.2); border-radius: 4px; padding: 2px 7px; font-size: .72rem; color: var(--gold-light); }
+
+/* ── TEMPLATE GALLERY ─────────────────────────────────────── */
+.tpl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tpl-card {
+  border: 1px solid rgba(201,168,76,.2);
+  border-radius: 8px;
+  padding: 10px 10px;
+  cursor: pointer;
+  background: rgba(247,244,238,.03);
+  transition: background .15s, border-color .15s;
+  text-align: left;
+}
+.tpl-card:hover { background: rgba(201,168,76,.1); border-color: var(--gold); }
+.tpl-card .tpl-icon { font-size: 1.2rem; margin-bottom: 4px; }
+.tpl-card .tpl-name { font-size: .76rem; font-weight: 600; color: var(--vellum); }
+.tpl-card .tpl-desc { font-size: .64rem; color: rgba(247,244,238,.4); margin-top: 2px; }
+
+/* ── QUICK DOC ACTIONS (print / copy / new) ──────────────────*/
+.doc-actions-row { display: flex; gap: 6px; }
+.doc-actions-row .swatch-btn { flex: 1; text-align: center; }
+
+@media print {
+  #topbar, #toolbar, #export-panel, #statusbar, #loading, #toast,
+  #focus-exit-hint, .iw-modal-overlay { display: none !important; }
+  #layout, #editor-wrap, #page-wrap { display: block !important; overflow: visible !important; height: auto !important; }
+  #page { box-shadow: none !important; max-width: 100% !important; }
+  body { background: #fff !important; overflow: visible !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ADDED (round 4) — Document Library, Image Insert, Thesaurus,
+   Readability & Word Frequency, Case Converter, Table of Contents,
+   Ambient Sounds, Typewriter Mode, Fullscreen, Footnotes,
+   Page Breaks. All appended, nothing above modified.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── DOCUMENT LIBRARY ─────────────────────────────────────── */
+#doclib-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; }
+.doclib-item {
+  border: 1px solid rgba(201,168,76,.18);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(247,244,238,.03);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.doclib-item:hover { background: rgba(201,168,76,.1); border-color: var(--gold); }
+.doclib-item.active-doc { border-color: var(--gold); background: rgba(201,168,76,.14); }
+.doclib-item .dl-title { font-family: 'Lora', serif; font-size: .88rem; color: var(--vellum); font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doclib-item .dl-meta { font-size: .66rem; color: rgba(247,244,238,.4); }
+.doclib-item .dl-actions { display: flex; gap: 6px; margin-top: 8px; }
+.doclib-item .dl-actions button { flex: 1; padding: 4px 6px; font-size: .64rem; font-weight: 600; border-radius: 4px; cursor: pointer; border: 1px solid rgba(201,168,76,.25); background: rgba(201,168,76,.08); color: var(--gold-light); font-family: 'Inter', sans-serif; }
+.doclib-item .dl-actions button.dl-delete { color: #ffaaaa; border-color: rgba(168,76,76,.35); background: rgba(168,76,76,.1); }
+.doclib-empty { font-size: .78rem; color: rgba(247,244,238,.4); font-style: italic; text-align: center; padding: 16px 0; }
+
+/* ── IMAGE INSERT ─────────────────────────────────────────── */
+#editor img { max-width: 100%; height: auto; border-radius: 4px; margin: 12px 0; display: block; resize: both; overflow: auto; }
+
+/* ── THESAURUS POPOVER ────────────────────────────────────── */
+#thesaurus-popover {
+  position: fixed;
+  display: none;
+  width: 220px;
+  background: var(--ink-mid);
+  border: 1px solid rgba(201,168,76,.3);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  padding: 10px;
+  z-index: 500;
+}
+#thesaurus-popover.show { display: block; }
+.thes-word { font-family: 'Playfair Display', serif; color: var(--gold); font-size: .95rem; margin-bottom: 8px; }
+.thes-list { display: flex; flex-wrap: wrap; gap: 5px; }
+.thes-chip {
+  padding: 4px 9px;
+  font-size: .72rem;
+  font-family: 'Inter', sans-serif;
+  color: var(--vellum);
+  background: rgba(247,244,238,.06);
+  border: 1px solid rgba(201,168,76,.2);
+  border-radius: 12px;
+  cursor: pointer;
+}
+.thes-chip:hover { background: rgba(201,168,76,.2); border-color: var(--gold); }
+.thes-empty { font-size: .74rem; color: rgba(247,244,238,.4); }
+
+/* ── READABILITY & WORD FREQUENCY ─────────────────────────── */
+.readability-score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.readability-badge {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--gold-light);
+  border-radius: 8px;
+  padding: 6px 12px;
+  min-width: 46px;
+  text-align: center;
+}
+.readability-desc { font-size: .74rem; color: rgba(247,244,238,.6); line-height: 1.4; }
+.wordfreq-cloud { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.wf-tag {
+  padding: 3px 9px;
+  font-size: .68rem;
+  font-family: 'Inter', sans-serif;
+  color: var(--gold-light);
+  background: rgba(201,168,76,.1);
+  border: 1px solid rgba(201,168,76,.2);
+  border-radius: 12px;
+}
+.wf-tag b { color: var(--vellum); font-weight: 700; }
+
+/* ── CASE CONVERTER ───────────────────────────────────────── */
+.case-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.case-row .swatch-btn { flex: 1; min-width: 70px; text-align: center; }
+
+/* ── TABLE OF CONTENTS BLOCK (inserted into document) ─────── */
+#editor .inkwell-toc {
+  border: 1px solid rgba(45,74,122,.25);
+  border-radius: 6px;
+  padding: 14px 18px;
+  margin: 16px 0;
+  background: rgba(45,74,122,.04);
+}
+#editor .inkwell-toc .toc-title { font-family: 'Playfair Display', serif; font-weight: 700; margin-bottom: 8px; font-size: 1rem; }
+#editor .inkwell-toc ul { list-style: none; padding-left: 0; margin: 0; }
+#editor .inkwell-toc li { margin: 3px 0; }
+#editor .inkwell-toc li.toc-lvl-2 { padding-left: 16px; }
+#editor .inkwell-toc li.toc-lvl-3 { padding-left: 32px; font-size: .92em; opacity: .85; }
+#editor .inkwell-toc a { color: var(--blue); text-decoration: none; }
+#editor .inkwell-toc a:hover { text-decoration: underline; }
+
+/* ── AMBIENT SOUNDS ───────────────────────────────────────── */
+.ambient-row { display: flex; gap: 6px; margin-bottom: 8px; }
+.ambient-row button {
+  flex: 1;
+  padding: 9px 4px;
+  border-radius: 6px;
+  border: 1px solid rgba(201,168,76,.2);
+  background: rgba(247,244,238,.04);
+  color: rgba(247,244,238,.7);
+  font-size: .72rem;
+  cursor: pointer;
+  text-align: center;
+}
+.ambient-row button.active { background: rgba(201,168,76,.28); border-color: var(--gold); color: var(--gold-light); }
+.ambient-vol-row { display: flex; align-items: center; gap: 8px; }
+.ambient-vol-row label { font-size: .68rem; color: rgba(247,244,238,.5); min-width: 42px; }
+.ambient-vol-row input[type="range"] { flex: 1; accent-color: var(--gold); }
+
+/* ── TYPEWRITER MODE ──────────────────────────────────────── */
+.typewriter-toggle-row { display: flex; align-items: center; gap: 8px; font-size: .76rem; color: var(--vellum); cursor: pointer; }
+
+/* ── FOOTNOTES ─────────────────────────────────────────────── */
+#editor sup.inkwell-fnref { color: var(--blue); font-weight: 700; cursor: pointer; }
+#editor .inkwell-footnotes { margin-top: 30px; padding-top: 14px; border-top: 1px solid rgba(45,74,122,.25); font-size: .85em; color: var(--ink-light); }
+#editor .inkwell-footnotes .fn-item { margin: 4px 0; }
+#editor .inkwell-footnotes .fn-item span.fn-num { color: var(--blue); font-weight: 700; margin-right: 4px; }
+
+/* ── PAGE BREAK MARKER ────────────────────────────────────── */
+#editor .inkwell-pagebreak {
+  border: none;
+  border-top: 1px dashed rgba(45,74,122,.4);
+  margin: 26px 0;
+  position: relative;
+  height: 1px;
+}
+#editor .inkwell-pagebreak::after {
+  content: 'PAGE BREAK';
+  position: absolute;
+  top: -8px; left: 50%;
+  transform: translateX(-50%);
+  background: var(--vellum);
+  padding: 0 10px;
+  font-size: .6rem;
+  letter-spacing: .1em;
+  color: rgba(45,74,122,.5);
+  font-family: 'Inter', sans-serif;
+}
+@media print { #editor .inkwell-pagebreak { page-break-after: always; border: none; } #editor .inkwell-pagebreak::after { content: none; } }
+
+/* ══════════════════════════════════════════════════════════════
+   NEW (API round) — Dictionary, AI Companion, Cover Images,
+   Writing Prompts, Contextual Words.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── DICTIONARY ────────────────────────────────────────────── */
+.dict-word      { font-family:'Playfair Display',serif; color:var(--gold); font-size:1.05rem; font-weight:700; margin-bottom:4px; }
+.dict-phonetic  { font-size:.72rem; color:rgba(247,244,238,.4); margin-bottom:8px; font-style:italic; }
+.dict-pos       { font-size:.62rem; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-light); font-weight:700; margin:8px 0 3px; }
+.dict-def       { font-size:.78rem; color:rgba(247,244,238,.8); line-height:1.5; margin-bottom:3px; }
+.dict-example   { font-size:.72rem; color:rgba(247,244,238,.45); font-style:italic; padding-left:10px; border-left:2px solid rgba(201,168,76,.3); margin-bottom:6px; }
+.dict-empty     { font-size:.75rem; color:rgba(247,244,238,.35); font-style:italic; }
+.dict-loading   { font-size:.75rem; color:rgba(247,244,238,.4); animation: pulse .9s infinite alternate; }
+@keyframes pulse { from{opacity:.4} to{opacity:1} }
+#dict-output    { max-height:200px; overflow-y:auto; margin-top:8px; padding:10px; background:rgba(247,244,238,.03); border:1px solid rgba(201,168,76,.12); border-radius:7px; }
+
+/* ── AI COMPANION ─────────────────────────────────────────── */
+.ai-mode-grid   { display:grid; grid-template-columns:1fr 1fr; gap:5px; margin-bottom:10px; }
+.ai-mode-btn    {
+  padding:7px 6px; font-size:.67rem; font-family:'Inter',sans-serif; font-weight:600;
+  border:1px solid rgba(201,168,76,.2); border-radius:6px; cursor:pointer;
+  background:rgba(247,244,238,.03); color:rgba(247,244,238,.7);
+  transition:background .15s, border-color .15s, color .15s; text-align:center;
+}
+.ai-mode-btn:hover { background:rgba(201,168,76,.14); border-color:var(--gold); color:var(--gold-light); }
+.ai-mode-btn:active { transform:scale(.97); }
+#ai-output {
+  margin-top:8px; padding:10px 12px; min-height:60px; max-height:180px; overflow-y:auto;
+  background:rgba(247,244,238,.04); border:1px solid rgba(201,168,76,.15); border-radius:7px;
+  font-family:'Lora',serif; font-size:.8rem; color:rgba(247,244,238,.85);
+  line-height:1.6; white-space:pre-wrap; transition:opacity .3s;
+}
+.ai-key-row     { display:flex; gap:6px; margin-top:8px; }
+.ai-key-row input {
+  flex:1; background:rgba(247,244,238,.05); border:1px solid rgba(201,168,76,.2);
+  color:var(--vellum); font-family:'Inter',sans-serif; font-size:.72rem;
+  padding:6px 8px; border-radius:6px;
+}
+.ai-badge       {
+  display:inline-block; font-size:.55rem; font-weight:700; letter-spacing:.07em;
+  padding:2px 6px; border-radius:3px; text-transform:uppercase; vertical-align:middle;
+  margin-left:6px; background:linear-gradient(90deg,var(--blue),var(--gold));
+  color:var(--ink);
+}
+
+/* ── COVER IMAGE SEARCH ───────────────────────────────────── */
+.cover-search-row  { display:flex; gap:6px; margin-bottom:8px; }
+.cover-search-row input {
+  flex:1; background:rgba(247,244,238,.05); border:1px solid rgba(201,168,76,.2);
+  color:var(--vellum); font-family:'Inter',sans-serif; font-size:.72rem;
+  padding:6px 8px; border-radius:6px;
+}
+#cover-image-grid  { display:grid; grid-template-columns:1fr 1fr 1fr; gap:5px; margin-top:6px; }
+.cover-img-cell    { border-radius:6px; overflow:hidden; cursor:pointer; aspect-ratio:3/2; }
+.cover-img-cell img { width:100%; height:100%; object-fit:cover; display:block; transition:transform .2s,opacity .2s; opacity:.85; }
+.cover-img-cell:hover img { transform:scale(1.05); opacity:1; }
+.cover-loading     { font-size:.72rem; color:rgba(247,244,238,.4); padding:10px; grid-column:1/-1; text-align:center; }
+
+/* ── WRITING PROMPTS ─────────────────────────────────────── */
+#prompt-output {
+  padding:12px 14px; min-height:52px; background:rgba(247,244,238,.04);
+  border:1px solid rgba(201,168,76,.15); border-radius:8px;
+  font-family:'Lora',serif; font-size:.82rem; color:rgba(247,244,238,.85);
+  line-height:1.6; font-style:italic; margin:8px 0; transition:opacity .35s;
+}
+.prompt-actions { display:flex; gap:6px; }
+
+/* ── CONTEXTUAL WORDS ────────────────────────────────────── */
+#contextual-words { display:flex; flex-wrap:wrap; gap:5px; min-height:28px; }
+
+/* ── SECTION HEADER BADGE ────────────────────────────────── */
+.ep-new-badge {
+  font-size:.52rem; letter-spacing:.07em; text-transform:uppercase; font-weight:700;
+  background:linear-gradient(90deg,#2d4a7a,#c9a84c); color:#fff;
+  border-radius:3px; padding:1px 5px; margin-left:6px; vertical-align:middle;
+}
+
+/* Rhymes / Poetry Widget */
+.rhyme-results-header { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: rgba(247,244,238,.45); margin-bottom: 6px; }
+.rhyme-list { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.rhyme-chip {
+  padding: 4px 8px; font-size: .72rem; font-family: 'Inter', sans-serif;
+  color: var(--vellum); background: rgba(247,244,238,.05);
+  border: 1px solid rgba(201,168,76,.18); border-radius: 12px; cursor: pointer;
+  transition: background .15s, border-color .15s; display: inline-flex; align-items: center; gap: 4px;
+}
+.rhyme-chip:hover { background: rgba(201,168,76,.2); border-color: var(--gold); }
+.rhyme-chip .rhyme-syl { font-size: .55rem; color: var(--gold-light); opacity: 0.75; font-weight: 700; background: rgba(201,168,76,.15); padding: 1px 4px; border-radius: 6px; }
+.rhyme-empty, .rhyme-error, .rhyme-loading { font-size: .74rem; color: rgba(247,244,238,.45); font-style: italic; padding: 6px 0; }
+.rhyme-footer { font-size: .6rem; color: rgba(247,244,238,.28); margin-top: 4px; }
+
+/* Grammar / Style Cards */
+.grammar-issue-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.grammar-issue-card {
+  border-radius: 8px; padding: 8px 10px; background: rgba(247,244,238,.03);
+  border: 1px solid rgba(201,168,76,.12); border-left-width: 4px;
+}
+.grammar-issue-card.cliche { border-left-color: var(--gold); }
+.grammar-issue-card.redundancy { border-left-color: #38bdf8; }
+.grammar-issue-card.adverb { border-left-color: #a78bfa; }
+.grammar-issue-card.passive { border-left-color: #fbbf24; }
+.grammar-issue-type { font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; margin-bottom: 2px; }
+.grammar-issue-card.cliche .grammar-issue-type { color: var(--gold-light); }
+.grammar-issue-card.redundancy .grammar-issue-type { color: #38bdf8; }
+.grammar-issue-card.adverb .grammar-issue-type { color: #a78bfa; }
+.grammar-issue-card.passive .grammar-issue-type { color: #fbbf24; }
+.grammar-issue-match { font-family: 'Lora', serif; font-size: .76rem; font-weight: 700; color: var(--vellum); margin-bottom: 3px; font-style: italic; }
+.grammar-issue-desc { font-size: .7rem; color: rgba(247,244,238,.6); line-height: 1.4; margin-bottom: 6px; }
+.grammar-fix-btn {
+  display: block; width: 100%; padding: 4px; font-size: .66rem; font-family: 'Inter', sans-serif;
+  background: rgba(201,168,76,.1); color: var(--gold-light); border: 1px solid rgba(201,168,76,.25);
+  border-radius: 4px; cursor: pointer; text-align: center; font-weight: 600;
+}
+.grammar-fix-btn:hover { background: rgba(201,168,76,.2); border-color: var(--gold); }
+.grammar-empty, .grammar-success { font-size: .74rem; color: rgba(247,244,238,.45); font-style: italic; padding: 6px 0; }
+.grammar-success { color: #34d399; font-style: normal; }
+
+/* Time Machine Snapshots */
+.tm-snap-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 8px; margin-bottom: 4px; border-radius: 6px; cursor: pointer;
+  border: 1px solid transparent; background: rgba(255,255,255,0.01);
+  transition: background .12s, border-color .12s;
+}
+.tm-snap-item:hover { background: rgba(255,255,255,0.04); }
+.tm-snap-item.active { background: rgba(201,168,76,.08); border-color: rgba(201,168,76,.3); }
+.tm-snap-info { display: flex; flex-direction: column; }
+.tm-snap-time { font-size: .74rem; color: var(--vellum); font-weight: 600; }
+.tm-snap-date { font-size: .58rem; color: rgba(247,244,238,.4); }
+.tm-snap-stats { display: flex; flex-direction: column; align-items: flex-end; font-size: .64rem; color: rgba(247,244,238,.5); }
+.tm-snap-badge { font-size: .5rem; text-transform: uppercase; background: var(--gold); color: var(--ink); border-radius: 3px; padding: 1px 3px; font-weight: 700; margin-top: 2px; }
+.tm-empty { font-size: .72rem; color: rgba(247,244,238,.4); text-align: center; padding: 12px; font-style: italic; }
+
+
+/* ── WIKIPEDIA RESEARCH ─────────────────────────────────────── */
+.wiki-loading {
+  display: flex; align-items: center; gap: 8px;
+  font-size: .74rem; color: rgba(247,244,238,.5); font-style: italic; padding: 8px 0;
+}
+.wiki-spinner {
+  display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+  border: 2px solid rgba(201,168,76,.3); border-top-color: var(--gold);
+  animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.wiki-card {
+  background: rgba(247,244,238,.03); border: 1px solid rgba(201,168,76,.14);
+  border-radius: 9px; overflow: hidden; margin-bottom: 8px;
+}
+.wiki-thumb {
+  width: 100%; max-height: 110px; object-fit: cover; display: block;
+  border-bottom: 1px solid rgba(201,168,76,.1);
+}
+.wiki-card-body { padding: 10px 12px; }
+.wiki-title { font-family: 'Playfair Display', serif; font-size: .94rem; font-weight: 700; color: var(--gold); margin-bottom: 2px; }
+.wiki-desc  { font-size: .64rem; text-transform: uppercase; letter-spacing: .07em; color: rgba(247,244,238,.38); margin-bottom: 6px; }
+.wiki-extract { font-size: .76rem; color: rgba(247,244,238,.8); line-height: 1.55; margin-bottom: 8px; }
+.wiki-footer { display: flex; justify-content: space-between; align-items: center; font-size: .6rem; color: rgba(247,244,238,.35); }
+.wiki-link { color: var(--gold-light); text-decoration: none; font-weight: 600; }
+.wiki-link:hover { text-decoration: underline; }
+.wiki-actions { display: flex; gap: 6px; }
+.wiki-not-found { font-size: .74rem; color: rgba(247,244,238,.4); font-style: italic; padding: 6px 0; }
+.wiki-suggestions { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.wiki-sugg-btn {
+  padding: 4px 9px; font-size: .72rem; font-family: 'Inter', sans-serif;
+  color: var(--vellum); background: rgba(247,244,238,.05);
+  border: 1px solid rgba(201,168,76,.2); border-radius: 12px; cursor: pointer;
+}
+.wiki-sugg-btn:hover { background: rgba(201,168,76,.15); border-color: var(--gold); }
+
+
+/* ── OPEN LIBRARY BOOK SEARCH ───────────────────────────────── */
+.books-count { font-size:.62rem; color:rgba(247,244,238,.35); margin-bottom:8px; }
+.books-list  { display:flex; flex-direction:column; gap:8px; }
+.book-card {
+  display:flex; gap:8px; background:rgba(247,244,238,.03);
+  border:1px solid rgba(201,168,76,.13); border-radius:8px;
+  padding:8px; overflow:hidden;
+}
+.book-cover-wrap { flex-shrink:0; width:42px; }
+.book-cover { width:42px; height:60px; object-fit:cover; border-radius:4px; display:block; }
+.book-cover-placeholder {
+  width:42px; height:60px; border-radius:4px;
+  background:rgba(201,168,76,.1); display:flex; align-items:center;
+  justify-content:center; font-size:1.2rem; color:rgba(201,168,76,.5);
+}
+.book-info { flex:1; min-width:0; }
+.book-title  { font-family:'Lora',serif; font-size:.78rem; font-weight:700; color:var(--vellum); line-height:1.3; margin-bottom:2px; }
+.book-author { font-size:.66rem; color:var(--gold-light); margin-bottom:2px; }
+.book-meta   { font-size:.58rem; color:rgba(247,244,238,.35); margin-bottom:6px; line-height:1.4; }
+.book-cite-row { display:flex; gap:4px; flex-wrap:wrap; }
+.book-cite-btn {
+  padding:2px 7px; font-size:.6rem; font-family:'Inter',sans-serif; font-weight:700;
+  border:1px solid rgba(201,168,76,.25); border-radius:4px; cursor:pointer;
+  background:rgba(201,168,76,.07); color:var(--gold-light);
+  transition:background .12s, border-color .12s;
+}
+.book-cite-btn:hover { background:rgba(201,168,76,.2); border-color:var(--gold); }
+
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="brand">
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path d="M3 14.5L7 4.5L11 9L15 3.5" stroke="#c9a84c" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="15" cy="3.5" r="1.5" fill="#c9a84c"/>
+      <path d="M2 15h14" stroke="#c9a84c" stroke-width="1.2" stroke-linecap="round" opacity=".4"/>
+    </svg>
+    Inkwell
+  </div>
+  <input class="title-input" id="doc-title" type="text" placeholder="Untitled document…" spellcheck="false" />
+  <div class="topbar-meta" id="topbar-clock"></div>
+</div>
+
+<!-- BODY -->
+<div id="layout">
+
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Bold" onclick="fmt('bold')"><b>B</b></button>
+      <button class="tb-btn" data-tip="Italic" onclick="fmt('italic')"><i>I</i></button>
+      <button class="tb-btn" data-tip="Underline" onclick="fmt('underline')"><u>U</u></button>
+      <button class="tb-btn" data-tip="Strikethrough" onclick="fmt('strikeThrough')" style="text-decoration:line-through;font-size:.75rem">S</button>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Heading 1" onclick="fmtBlock('h1')" style="font-size:.72rem;font-family:var(--font-lora);">H1</button>
+      <button class="tb-btn" data-tip="Heading 2" onclick="fmtBlock('h2')" style="font-size:.72rem">H2</button>
+      <button class="tb-btn" data-tip="Heading 3" onclick="fmtBlock('h3')" style="font-size:.72rem">H3</button>
+      <button class="tb-btn" data-tip="Paragraph" onclick="fmtBlock('p')" style="font-size:.72rem">¶</button>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Align Left" onclick="fmt('justifyLeft')">
+        <svg width="14" height="11" viewBox="0 0 14 11" fill="currentColor"><rect x="0" y="0" width="14" height="2" rx="1"/><rect x="0" y="4.5" width="9" height="2" rx="1"/><rect x="0" y="9" width="12" height="2" rx="1"/></svg>
+      </button>
+      <button class="tb-btn" data-tip="Center" onclick="fmt('justifyCenter')">
+        <svg width="14" height="11" viewBox="0 0 14 11" fill="currentColor"><rect x="0" y="0" width="14" height="2" rx="1"/><rect x="2.5" y="4.5" width="9" height="2" rx="1"/><rect x="1" y="9" width="12" height="2" rx="1"/></svg>
+      </button>
+      <button class="tb-btn" data-tip="Justify" onclick="fmt('justifyFull')">
+        <svg width="14" height="11" viewBox="0 0 14 11" fill="currentColor"><rect x="0" y="0" width="14" height="2" rx="1"/><rect x="0" y="4.5" width="14" height="2" rx="1"/><rect x="0" y="9" width="14" height="2" rx="1"/></svg>
+      </button>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Bullet List" onclick="fmt('insertUnorderedList')">
+        <svg width="14" height="11" viewBox="0 0 14 11" fill="currentColor"><circle cx="1.5" cy="1.5" r="1.5"/><rect x="4" y="0" width="10" height="2" rx="1"/><circle cx="1.5" cy="5.5" r="1.5"/><rect x="4" y="4.5" width="10" height="2" rx="1"/><circle cx="1.5" cy="9.5" r="1.5"/><rect x="4" y="9" width="10" height="2" rx="1"/></svg>
+      </button>
+      <button class="tb-btn" data-tip="Numbered List" onclick="fmt('insertOrderedList')">
+        <svg width="14" height="11" viewBox="0 0 14 11" fill="currentColor"><text x="0" y="10" font-size="5" font-family="monospace">1.</text><rect x="6" y="0" width="8" height="2" rx="1"/><rect x="6" y="4.5" width="8" height="2" rx="1"/><rect x="6" y="9" width="8" height="2" rx="1"/></svg>
+      </button>
+      <button class="tb-btn" data-tip="Block Quote" onclick="fmtBlock('blockquote')" style="font-size:1.1rem;opacity:.8">"</button>
+    </div>
+    <div class="tb-group">
+      <div class="font-size-ctrl">
+        <button onclick="changeFontSize(1)" data-tip="Increase font">▲</button>
+        <span id="fs-display">17</span>
+        <button onclick="changeFontSize(-1)" data-tip="Decrease font">▼</button>
+      </div>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Undo" onclick="document.execCommand('undo')">↩</button>
+      <button class="tb-btn" data-tip="Redo" onclick="document.execCommand('redo')">↪</button>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Clear formatting" onclick="fmt('removeFormat')" style="font-size:.65rem">Tx</button>
+      <button class="tb-btn" data-tip="Horizontal rule" onclick="insertHR()" style="font-size:.8rem">—</button>
+    </div>
+
+    <!-- ADDED: Emoji / Filters / Effects toolbar group -->
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Insert Emoji" onclick="toggleEmojiPopover(event)" style="font-size:1rem">🙂</button>
+      <button class="tb-btn" data-tip="Page Filters" onclick="toggleCollapse('ep-filters')" style="font-size:.85rem">🎨</button>
+      <button class="tb-btn" data-tip="Text Effects" onclick="toggleCollapse('ep-effects')" style="font-size:.85rem">✨</button>
+      <button class="tb-btn" data-tip="Page Setup" onclick="toggleCollapse('ep-pagesetup')" style="font-size:.85rem">📄</button>
+    </div>
+
+    <!-- ADDED: More editing tools toolbar group -->
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Text Color" onclick="toggleColorPopover(event,'text')" style="font-size:.8rem">A<span style="display:block;height:2px;background:#a84c4c;margin-top:1px"></span></button>
+      <button class="tb-btn" data-tip="Highlight Color" onclick="toggleColorPopover(event,'back')" style="font-size:.8rem">🖊</button>
+      <button class="tb-btn" data-tip="Insert Link" onclick="promptInsertLink()" style="font-size:.85rem">🔗</button>
+      <button class="tb-btn" data-tip="Insert Table" onclick="toggleTableGridPopover(event)" style="font-size:.85rem">▦</button>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Checklist" onclick="insertChecklist()" style="font-size:.8rem">☑</button>
+      <button class="tb-btn" data-tip="Code Block" onclick="insertCodeBlock()" style="font-size:.7rem;font-family:monospace">&lt;/&gt;</button>
+      <button class="tb-btn" data-tip="Superscript" onclick="fmt('superscript')" style="font-size:.7rem">x²</button>
+      <button class="tb-btn" data-tip="Subscript" onclick="fmt('subscript')" style="font-size:.7rem">x₂</button>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Indent" onclick="fmt('indent')" style="font-size:.85rem">→|</button>
+      <button class="tb-btn" data-tip="Outdent" onclick="fmt('outdent')" style="font-size:.85rem">|←</button>
+      <button class="tb-btn" data-tip="Find & Replace" onclick="toggleFindReplace()" style="font-size:.85rem">🔍</button>
+      <button class="tb-btn" data-tip="Special Character" onclick="toggleSpecialCharPopover(event)" style="font-size:.85rem">Ω</button>
+    </div>
+
+    <!-- ADDED (round 3): Focus / Outline / Goal / Read Aloud / Pomodoro / Shortcuts -->
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Focus Mode" onclick="toggleFocusMode()" id="focus-mode-btn" style="font-size:.85rem">◎</button>
+      <button class="tb-btn" data-tip="Outline" onclick="jumpToSection('ep-outline')" style="font-size:.85rem">☰</button>
+      <button class="tb-btn" data-tip="Templates" onclick="toggleTemplateModal()" style="font-size:.85rem">🗂</button>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Print" onclick="printDocument()" style="font-size:.85rem">🖶</button>
+      <button class="tb-btn" data-tip="Copy All" onclick="copyDocumentToClipboard()" style="font-size:.8rem">⧉</button>
+      <button class="tb-btn" data-tip="New Document" onclick="newDocument()" style="font-size:.85rem">＋</button>
+      <button class="tb-btn" data-tip="Keyboard Shortcuts" onclick="toggleShortcutsModal()" style="font-size:.85rem">⌘</button>
+    </div>
+
+    <!-- ADDED (round 4): Library / Image / Thesaurus / TOC / Footnote / Page Break / Fullscreen -->
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Document Library" onclick="toggleDocLibraryModal()" style="font-size:.85rem">📚</button>
+      <button class="tb-btn" data-tip="Insert Image" onclick="triggerImageUpload()" style="font-size:.85rem">🖼</button>
+      <button class="tb-btn" data-tip="Thesaurus (select a word)" onclick="showThesaurusForSelection(event)" style="font-size:.85rem">📔</button>
+    </div>
+    <div class="tb-group">
+      <button class="tb-btn" data-tip="Insert Table of Contents" onclick="insertTableOfContents()" style="font-size:.7rem">TOC</button>
+      <button class="tb-btn" data-tip="Insert Footnote" onclick="insertFootnote()" style="font-size:.85rem">†</button>
+      <button class="tb-btn" data-tip="Insert Page Break" onclick="insertPageBreak()" style="font-size:.85rem">⤓</button>
+      <button class="tb-btn" data-tip="Fullscreen" onclick="toggleFullscreen()" style="font-size:.85rem">⛶</button>
+    </div>
+  </div>
+
+  <!-- EDITOR -->
+  <div id="editor-wrap">
+    <div id="page-wrap">
+      <div id="page">
+        <div
+          id="editor"
+          contenteditable="true"
+          spellcheck="true"
+          data-placeholder="Begin your story, essay, or reflection here…"
+        ></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT PANEL -->
+  <div id="export-panel">
+
+    <!-- ADDED: Sticky quick-access bar so new features are visible without scrolling -->
+    <div id="ep-quickbar">
+      <button class="save-download-btn" onclick="saveThenDownload()" style="margin-bottom:8px">💾 Save &amp; Download</button>
+      <div class="qb-row">
+        <button class="qb-chip" data-tip="Emoji" onclick="toggleEmojiPopover(event)">🙂 Emoji</button>
+        <button class="qb-chip" data-tip="Dictate" onclick="jumpToSection('ep-voice')">🎙 Dictate</button>
+        <button class="qb-chip" data-tip="Poetry" onclick="jumpToSection('ep-poetry')">✍ Poetry</button>
+        <button class="qb-chip" data-tip="Grammar" onclick="jumpToSection('ep-readability')">🔍 Style</button>
+        <button class="qb-chip" data-tip="Time Travel" onclick="jumpToSection('ep-timemachine')">🕰 Playback</button>
+        <button class="qb-chip" data-tip="Mindmap" onclick="jumpToSection('ep-mindmap')">🗺 Mindmap</button>
+        <button class="qb-chip" data-tip="Wikipedia" onclick="jumpToSection('ep-wiki')">🌐 Research</button>
+        <button class="qb-chip" data-tip="Books" onclick="jumpToSection('ep-books')">📚 Books</button>
+        <button class="qb-chip" data-tip="Emoji" onclick="toggleEmojiPopover(event)">🙂 Emoji</button>
+        <button class="qb-chip" data-tip="Filters" onclick="jumpToSection('ep-filters')">🎨 Filters</button>
+        <button class="qb-chip" data-tip="Effects" onclick="jumpToSection('ep-effects')">✨ Effects</button>
+        <button class="qb-chip" data-tip="Translator" onclick="jumpToSection('ep-translator')">🌐 Translate</button>
+        <button class="qb-chip" data-tip="Outline" onclick="jumpToSection('ep-outline')">☰ Outline</button>
+        <button class="qb-chip" data-tip="Goal" onclick="jumpToSection('ep-goal')">🎯 Goal</button>
+        <button class="qb-chip" data-tip="Read Aloud" onclick="jumpToSection('ep-readaloud')">🔊 Listen</button>
+        <button class="qb-chip" data-tip="Focus Mode" onclick="toggleFocusMode()">◎ Focus</button>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="ep-section">
+      <div class="ep-label">Writing Stats</div>
+      <div class="stat-row"><span>Words</span><span id="stat-words">0</span></div>
+      <div class="stat-row"><span>Characters</span><span id="stat-chars">0</span></div>
+      <div class="stat-row"><span>Sentences</span><span id="stat-sents">0</span></div>
+      <div class="stat-row"><span>Paragraphs</span><span id="stat-paras">0</span></div>
+      <div class="read-bar-wrap">
+        <div class="stat-row"><span>Read time</span><span id="stat-read">0 min</span></div>
+        <div class="read-bar-bg"><div class="read-bar-fill" id="read-bar" style="width:4px"></div></div>
+      </div>
+    </div>
+
+    <!-- EXPORT DOCUMENTS -->
+    <div class="ep-section">
+      <div class="ep-label">Export Document</div>
+      <button class="export-btn" onclick="exportDocx()">
+        <span class="ext-badge badge-doc">DOCX</span> Word Document
+      </button>
+      <button class="export-btn" onclick="exportPDF()">
+        <span class="ext-badge badge-pdf">PDF</span> PDF File
+      </button>
+      <button class="export-btn" onclick="exportTxt()">
+        <span class="ext-badge badge-txt">TXT</span> Plain Text
+      </button>
+      <button class="export-btn" onclick="exportMd()">
+        <span class="ext-badge badge-md">MD</span> Markdown
+      </button>
+      <button class="export-btn" onclick="exportHtml()">
+        <span class="ext-badge badge-html">HTML</span> HTML File
+      </button>
+    </div>
+
+    <!-- EXPORT IMAGE -->
+    <div class="ep-section">
+      <div class="ep-label">Export as Image</div>
+      <button class="export-btn" onclick="exportImg('png')">
+        <span class="ext-badge badge-png">PNG</span> PNG Image
+      </button>
+      <button class="export-btn" onclick="exportImg('jpeg')">
+        <span class="ext-badge badge-jpg">JPG</span> JPEG Image
+      </button>
+    </div>
+
+    <!-- THEME -->
+    <div class="ep-section">
+      <div class="ep-label">Page Theme</div>
+      <div class="theme-dots">
+        <div class="theme-dot selected" style="background:#f7f4ee; box-shadow: inset 0 0 0 1px rgba(0,0,0,.15);" data-theme="" title="Classic Vellum" onclick="setTheme(this,'')"></div>
+        <div class="theme-dot" style="background:#f0e6d0" data-theme="sepia" title="Sepia" onclick="setTheme(this,'sepia')"></div>
+        <div class="theme-dot" style="background:#e8edf4" data-theme="slate" title="Slate Blue" onclick="setTheme(this,'slate')"></div>
+        <div class="theme-dot" style="background:#e8f4f0" data-theme="mint" title="Mint" onclick="setTheme(this,'mint')"></div>
+        <div class="theme-dot" style="background:#1e2028; border: 1px solid rgba(255,255,255,.15)" data-theme="dark" title="Night Mode" onclick="setTheme(this,'dark')"></div>
+      </div>
+    </div>
+
+    <!-- FONT -->
+    <div class="ep-section">
+      <div class="ep-label">Body Font</div>
+      <div class="font-pick">
+        <button class="font-opt selected" style="font-family:'Lora',serif" onclick="setFont(this,'Lora, serif')">Lora</button>
+        <button class="font-opt" style="font-family:'Georgia',serif" onclick="setFont(this,'Georgia, serif')">Georgia</button>
+        <button class="font-opt" style="font-family:'Inter',sans-serif" onclick="setFont(this,'Inter, sans-serif')">Inter</button>
+        <button class="font-opt" style="font-family:'Courier New',monospace;font-size:.72rem" onclick="setFont(this,&quot;'Courier New', monospace&quot;)">Courier New</button>
+      </div>
+    </div>
+
+    <!-- ══════ ADDED SECTIONS BELOW (nothing above modified) ══════ -->
+
+    <!-- PRESENT TIME DISPLAYER -->
+    <div class="ep-section">
+      <div class="ep-label">Present Time</div>
+      <div class="clock-widget">
+        <div class="cw-time" id="widget-clock-time">--:--:--</div>
+        <div class="cw-date" id="widget-clock-date">—</div>
+      </div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="ep-section" id="ep-filters-section">
+      <div class="ep-collapse-head" id="head-ep-filters" onclick="toggleCollapse('ep-filters')">
+        <div class="ep-label" style="margin-bottom:0">Page Filters</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-filters">
+        <div class="swatch-row">
+          <button class="swatch-btn selected" data-filter="" onclick="setPageFilter(this,'')">None</button>
+          <button class="swatch-btn" data-filter="vintage" onclick="setPageFilter(this,'vintage')">Vintage</button>
+          <button class="swatch-btn" data-filter="noir" onclick="setPageFilter(this,'noir')">Noir</button>
+          <button class="swatch-btn" data-filter="warm" onclick="setPageFilter(this,'warm')">Warm</button>
+          <button class="swatch-btn" data-filter="cool" onclick="setPageFilter(this,'cool')">Cool</button>
+          <button class="swatch-btn" data-filter="fade" onclick="setPageFilter(this,'fade')">Fade</button>
+          <button class="swatch-btn" data-filter="crisp" onclick="setPageFilter(this,'crisp')">Crisp</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TEXT EFFECTS -->
+    <div class="ep-section" id="ep-effects-section">
+      <div class="ep-collapse-head" id="head-ep-effects" onclick="toggleCollapse('ep-effects')">
+        <div class="ep-label" style="margin-bottom:0">Text Effects</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-effects">
+        <div class="swatch-row">
+          <button class="swatch-btn" onclick="applyTextEffect('fx-shadow')">Shadow</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-glow')">Glow</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-outline')">Outline</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-gradient')">Gradient</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-highlight-gold')">Highlight Gold</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-highlight-mint')">Highlight Mint</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-highlight-blue')">Highlight Blue</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-uppercase')">UPPERCASE</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-smallcaps')">Small Caps</button>
+          <button class="swatch-btn" onclick="applyTextEffect('fx-letterspace')">Letter Space</button>
+          <button class="swatch-btn" onclick="clearTextEffects()">Clear FX</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PAGE SETUP / EDITING OPTIONS -->
+    <div class="ep-section">
+      <div class="ep-collapse-head" id="head-ep-pagesetup" onclick="toggleCollapse('ep-pagesetup')">
+        <div class="ep-label" style="margin-bottom:0">Page Setup</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-pagesetup">
+        <div class="page-size-row" style="margin-bottom:10px">
+          <button class="swatch-btn selected" data-psize="a4" onclick="setPageSize(this,'a4')">A4</button>
+          <button class="swatch-btn" data-psize="letter" onclick="setPageSize(this,'letter')">Letter</button>
+          <button class="swatch-btn" data-psize="narrow" onclick="setPageSize(this,'narrow')">Narrow</button>
+          <button class="swatch-btn" data-psize="wide" onclick="setPageSize(this,'wide')">Wide</button>
+        </div>
+        <div class="range-row">
+          <span style="font-size:.68rem;color:rgba(247,244,238,.5);min-width:58px">Line height</span>
+          <input type="range" id="lh-range" min="140" max="260" value="200" oninput="setLineHeight(this.value)">
+          <span class="range-val" id="lh-val">2.0</span>
+        </div>
+        <div class="range-row">
+          <span style="font-size:.68rem;color:rgba(247,244,238,.5);min-width:58px">Padding</span>
+          <input type="range" id="pad-range" min="24" max="120" value="64" oninput="setPagePadding(this.value)">
+          <span class="range-val" id="pad-val">64px</span>
+        </div>
+        <div class="range-row">
+          <span style="font-size:.68rem;color:rgba(247,244,238,.5);min-width:58px">Letter sp.</span>
+          <input type="range" id="ls-range" min="0" max="40" value="0" oninput="setLetterSpacing(this.value)">
+          <span class="range-val" id="ls-val">0</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SMART EMOJI SUGGESTOR -->
+    <div class="ep-section">
+      <div class="ep-label">Smart Emoji Suggestor</div>
+      <div style="font-size:.7rem;color:rgba(247,244,238,.45);margin-bottom:8px">Suggests emoji as you type, based on keywords in your last sentence.</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.75rem;color:var(--vellum);cursor:pointer">
+        <input type="checkbox" id="smart-emoji-toggle" checked onchange="toggleSmartEmoji(this.checked)">
+        Enable live suggestions
+      </label>
+    </div>
+
+    <!-- ENGLISH WORD SUGGESTOR -->
+    <div class="ep-section">
+      <div class="ep-label">Word Suggestor</div>
+      <div style="font-size:.7rem;color:rgba(247,244,238,.45);margin-bottom:8px">Autocomplete suggestions for the word you're typing.</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:.75rem;color:var(--vellum);cursor:pointer">
+        <input type="checkbox" id="word-suggest-toggle" checked onchange="toggleWordSuggest(this.checked)">
+        Enable autocomplete
+      </label>
+    </div>
+
+    <!-- TRANSLATOR -->
+    <div class="ep-section" id="ep-translator">
+      <div class="ep-label">Translator</div>
+      <div class="translator-row">
+        <select id="translate-lang">
+          <option value="es">Spanish</option>
+          <option value="fr">French</option>
+          <option value="de">German</option>
+          <option value="hi">Hindi</option>
+          <option value="ja">Japanese</option>
+          <option value="zh">Chinese</option>
+          <option value="ar">Arabic</option>
+          <option value="ru">Russian</option>
+          <option value="pt">Portuguese</option>
+          <option value="it">Italian</option>
+        </select>
+      </div>
+      <button class="mini-btn" onclick="translateSelectionOrAll()">Translate</button>
+      <div class="translate-out" id="translate-output">Translation will appear here…</div>
+    </div>
+
+    <!-- ══════ ADDED SECTIONS (round 3) — nothing above modified ══════ -->
+
+    <!-- OUTLINE NAVIGATOR -->
+    <div class="ep-section" id="ep-outline-section">
+      <div class="ep-label">Outline</div>
+      <div id="outline-list"><div class="outline-empty">Add H1/H2/H3 headings to build an outline.</div></div>
+    </div>
+
+    <!-- WRITING GOAL -->
+    <div class="ep-section" id="ep-goal-section">
+      <div class="ep-label">Writing Goal</div>
+      <div class="goal-setup-row">
+        <span style="font-size:.72rem;color:rgba(247,244,238,.5)">Target words</span>
+        <input type="number" id="goal-target" min="0" step="50" value="500" oninput="setWritingGoal(this.value)">
+      </div>
+      <div class="goal-ring-wrap">
+        <svg width="72" height="72" viewBox="0 0 72 72">
+          <defs>
+            <linearGradient id="goalGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#2d4a7a"/>
+              <stop offset="100%" stop-color="#c9a84c"/>
+            </linearGradient>
+          </defs>
+          <circle class="goal-ring-track" cx="36" cy="36" r="30"/>
+          <circle class="goal-ring-fill" id="goal-ring-fill" cx="36" cy="36" r="30" stroke-dasharray="188.5" stroke-dashoffset="188.5" transform="rotate(-90 36 36)"/>
+          <text class="goal-ring-text" id="goal-ring-pct" x="36" y="41">0%</text>
+        </svg>
+        <div>
+          <div class="goal-stat-line"><b id="goal-current">0</b> / <span id="goal-target-display">500</span> words</div>
+          <div class="goal-stat-line">Remaining: <b id="goal-remaining">500</b></div>
+        </div>
+      </div>
+      <div class="goal-complete-msg" id="goal-complete-msg">🎉 Goal reached — beautifully done!</div>
+    </div>
+
+    <!-- READ ALOUD -->
+    <div class="ep-section" id="ep-readaloud-section">
+      <div class="ep-collapse-head" id="head-ep-readaloud" onclick="toggleCollapse('ep-readaloud')">
+        <div class="ep-label" style="margin-bottom:0">Read Aloud</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-readaloud">
+        <div class="ra-controls">
+          <button onclick="readAloudPlay()" id="ra-play-btn" data-tip="Play">▶ Play</button>
+          <button onclick="readAloudPause()" data-tip="Pause">⏸ Pause</button>
+          <button onclick="readAloudStop()" data-tip="Stop">⏹ Stop</button>
+        </div>
+        <div class="ra-row">
+          <label>Voice</label>
+          <select id="ra-voice-select"><option>Loading voices…</option></select>
+        </div>
+        <div class="ra-row">
+          <label>Speed</label>
+          <input type="range" id="ra-rate" min="0.5" max="1.8" step="0.1" value="1" oninput="document.getElementById('ra-rate-val').textContent = this.value + 'x'">
+          <span id="ra-rate-val" style="font-size:.68rem;color:rgba(247,244,238,.5);min-width:28px">1x</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- VOICE DICTATION -->
+    <div class="ep-section" id="ep-voice-section">
+      <div class="ep-collapse-head" id="head-ep-voice" onclick="toggleCollapse('ep-voice')">
+        <div class="ep-label" style="margin-bottom:0">Voice Dictation <span class="ep-new-badge">SPEECH</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-voice">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Speak and watch it type. Continuous microphone dictation.
+        </div>
+        <div class="ra-row">
+          <label>Language</label>
+          <select id="voice-lang-select">
+            <option value="en-US">English (US)</option>
+            <option value="en-GB">English (UK)</option>
+            <option value="es-ES">Spanish (Spain)</option>
+            <option value="fr-FR">French (France)</option>
+            <option value="de-DE">German (Germany)</option>
+            <option value="hi-IN">Hindi (India)</option>
+            <option value="ja-JP">Japanese</option>
+            <option value="zh-CN">Chinese (Simplified)</option>
+          </select>
+        </div>
+        <button class="save-download-btn" id="voice-start-btn" onclick="toggleVoiceDictation()" style="margin-top:6px;width:100%">🎙 Start Dictation</button>
+        <div id="voice-indicator" style="display:none;align-items:center;gap:6px;font-size:.7rem;color:#f87171;margin-top:6px;font-weight:600">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f87171;animation:pulse 0.8s infinite alternate"></span> Listening...
+        </div>
+        <div id="voice-interim" style="font-size:.74rem;color:rgba(247,244,238,.5);font-style:italic;margin-top:6px;min-height:18px;line-height:1.4"></div>
+      </div>
+    </div>
+
+
+    <!-- POMODORO TIMER -->
+    <div class="ep-section" id="ep-pomodoro-section">
+      <div class="ep-collapse-head" id="head-ep-pomodoro" onclick="toggleCollapse('ep-pomodoro')">
+        <div class="ep-label" style="margin-bottom:0">Writing Timer</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-pomodoro">
+        <div class="pomo-display">
+          <div class="pomo-time" id="pomo-time">25:00</div>
+          <div class="pomo-label" id="pomo-phase-label">Focus session</div>
+        </div>
+        <div class="pomo-controls">
+          <button onclick="pomodoroStart()" id="pomo-start-btn">Start</button>
+          <button onclick="pomodoroPause()">Pause</button>
+          <button onclick="pomodoroReset()">Reset</button>
+        </div>
+        <div class="pomo-sessions">Sessions completed: <span id="pomo-session-count">0</span></div>
+      </div>
+    </div>
+
+    <!-- VERSION HISTORY -->
+    
+    <!-- PLOT MINDMAP -->
+    <div class="ep-section" id="ep-mindmap-section">
+      <div class="ep-collapse-head" id="head-ep-mindmap" onclick="toggleCollapse('ep-mindmap')">
+        <div class="ep-label" style="margin-bottom:0">Plot &amp; Character Mindmap <span class="ep-new-badge">BOARD</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-mindmap">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:6px">
+          Double click empty space to add a node. Drag nodes to move them.
+        </div>
+        <div style="position:relative;border:1px solid rgba(201,168,76,.15);border-radius:8px;background:#141418;overflow:hidden">
+          <canvas id="mindmap-canvas" style="display:block;cursor:crosshair;width:100%"></canvas>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:6px">
+          <button class="mini-btn" style="flex:1" onclick="addNewNode()">＋ Add Node</button>
+          <button class="mini-btn" style="flex:1;background:rgba(168,76,76,.08);color:#ffaaaa;border-color:rgba(168,76,76,.2)" onclick="clearWholeMindmap()">🗑 Clear Board</button>
+        </div>
+        <div id="mm-node-details" style="display:none;margin-top:10px;background:rgba(247,244,238,.03);border:1px solid rgba(201,168,76,.12);border-radius:7px;padding:8px">
+          <div style="font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:rgba(247,244,238,.4);margin-bottom:4px">Edit Node</div>
+          <div class="cover-search-row" style="margin-bottom:6px">
+            <input type="text" id="mm-label" placeholder="Node label…" oninput="updateSelectedNodeLabel(this.value)">
+            <button class="mini-btn" style="width:auto;background:rgba(168,76,76,.1);color:#ffaaaa;border-color:rgba(168,76,76,.3)" onclick="deleteSelectedNode()">Delete</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+            <button class="mini-btn" style="flex:1" onclick="startConnectionFromSelected()">🔗 Link Node</button>
+            <button class="mini-btn" style="flex:1;background:rgba(201,168,76,.04);font-size:.66rem" onclick="clearAllConnectionsForSelected()">Unlink All</button>
+          </div>
+          <div style="display:flex;gap:4px;justify-content:space-between;margin-top:6px">
+            <button class="mini-btn" style="width:auto;flex:1;padding:4px 0;background:#a78bfa;color:#000" onclick="changeSelectedNodeColor('primary')">Violet</button>
+            <button class="mini-btn" style="width:auto;flex:1;padding:4px 0;background:#38bdf8;color:#000" onclick="changeSelectedNodeColor('secondary')">Blue</button>
+            <button class="mini-btn" style="width:auto;flex:1;padding:4px 0;background:#34d399;color:#000" onclick="changeSelectedNodeColor('success')">Green</button>
+            <button class="mini-btn" style="width:auto;flex:1;padding:4px 0;background:#fbbf24;color:#000" onclick="changeSelectedNodeColor('warning')">Amber</button>
+            <button class="mini-btn" style="width:auto;flex:1;padding:4px 0;background:#f87171;color:#000" onclick="changeSelectedNodeColor('danger')">Red</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    
+    <!-- WRITING TIME MACHINE -->
+    <div class="ep-section" id="ep-timemachine-section">
+      <div class="ep-collapse-head" id="head-ep-timemachine" onclick="toggleCollapse('ep-timemachine')">
+        <div class="ep-label" style="margin-bottom:0">Writing Time Machine <span class="ep-new-badge">REPLAY</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-timemachine">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Scrub through history or play back your session frame-by-frame.
+        </div>
+        <div class="tm-playback-controls" style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <button class="mini-btn" id="tm-play-btn" style="flex:1" onclick="toggleTimeMachinePlayback()">▶ Play</button>
+          <button class="mini-btn" onclick="recordSnapshot(true)" style="width:auto;padding:6px 10px" title="Save Checkpoint">📌 Checkpoint</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <input type="range" id="tm-scrubber" min="0" max="0" value="0" style="flex:1;accent-color:var(--gold)" oninput="handleScrubberChange(event)">
+        </div>
+        <div id="tm-preview-banner" style="display:none;background:rgba(201,168,76,.15);border:1px solid var(--gold);border-radius:6px;padding:8px 10px;margin-bottom:10px;flex-direction:column;gap:6px">
+          <div style="font-size:.7rem;font-weight:600;color:var(--gold-light);text-align:center">🕰 PREVIEWING HISTORICAL VERSION</div>
+          <div style="display:flex;gap:4px">
+            <button class="mini-btn" style="flex:1;background:rgba(168,76,76,.15);border-color:#ffaaaa;color:#ffaaaa" onclick="exitTimeMachinePreview()">Cancel</button>
+            <button class="mini-btn" style="flex:1;background:rgba(76,168,110,.15);border-color:#aaffaa;color:#aaffaa" onclick="restoreSelectedSnapshot()">Restore</button>
+          </div>
+        </div>
+        <div id="tm-snapshots-list" style="max-height:160px;overflow-y:auto;background:rgba(247,244,238,.03);border:1px solid rgba(201,168,76,.12);border-radius:7px;padding:6px">
+          <div class="tm-empty">No snapshots yet. Type in the editor to record.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="ep-section">
+      <div class="ep-label">Document</div>
+      <div class="doc-actions-row" style="margin-bottom:6px">
+        <button class="swatch-btn" onclick="printDocument()">🖶 Print</button>
+        <button class="swatch-btn" onclick="copyDocumentToClipboard()">⧉ Copy</button>
+      </div>
+      <div class="doc-actions-row" style="margin-bottom:6px">
+        <button class="swatch-btn" onclick="newDocument()">＋ New</button>
+        <button class="swatch-btn" onclick="toggleTemplateModal()">🗂 Templates</button>
+      </div>
+      <div class="doc-actions-row">
+        <button class="swatch-btn" onclick="toggleDocLibraryModal()">📚 Library</button>
+        <button class="swatch-btn" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+      </div>
+    </div>
+
+    <!-- ══════ ADDED SECTIONS (round 4) — nothing above modified ══════ -->
+
+    <!-- READABILITY & WORD FREQUENCY -->
+    
+    <!-- STYLE & READABILITY ANALYZER -->
+    <div class="ep-section" id="ep-readability-section">
+      <div class="ep-collapse-head" id="head-ep-readability" onclick="toggleCollapse('ep-readability')">
+        <div class="ep-label" style="margin-bottom:0">Style &amp; Readability <span class="ep-new-badge">LINT</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-readability">
+        <div class="readability-stats-grid" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center;margin-bottom:10px">
+          <div style="background:rgba(247,244,238,.04);border:1px solid rgba(201,168,76,.15);border-radius:6px;padding:6px 2px">
+            <div style="font-size:.6rem;color:rgba(247,244,238,.4)">Flesch Ease</div>
+            <div id="readability-ease" style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--gold);margin-top:2px">—</div>
+          </div>
+          <div style="background:rgba(247,244,238,.04);border:1px solid rgba(201,168,76,.15);border-radius:6px;padding:6px 2px">
+            <div style="font-size:.6rem;color:rgba(247,244,238,.4)">Grade Level</div>
+            <div id="readability-grade" style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--gold);margin-top:2px">—</div>
+          </div>
+          <div style="background:rgba(247,244,238,.04);border:1px solid rgba(201,168,76,.15);border-radius:6px;padding:6px 2px">
+            <div style="font-size:.6rem;color:rgba(247,244,238,.4)">Gunning Fog</div>
+            <div id="readability-fog" style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;color:var(--gold);margin-top:2px">—</div>
+          </div>
+        </div>
+        <button class="mini-btn" onclick="runGrammarCheck()" style="margin-bottom:8px">🔍 Analyze Style &amp; Clichés</button>
+        <div id="grammar-output"><div class="grammar-empty">Click Analyze to scan text for passive voice, cliches, and redundant wording.</div></div>
+        <div class="ep-label" style="margin-top:10px">Most Used Words</div>
+        <div class="wordfreq-cloud" id="wordfreq-cloud"><span class="wf-tag">Nothing yet</span></div>
+      </div>
+    </div>
+
+
+    <div class="ep-section">
+      <div class="ep-label">Case Converter</div>
+      <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">Applies to selected text, or the whole document if nothing is selected.</div>
+      <div class="case-row">
+        <button class="swatch-btn" onclick="convertCase('upper')">UPPER</button>
+        <button class="swatch-btn" onclick="convertCase('lower')">lower</button>
+        <button class="swatch-btn" onclick="convertCase('title')">Title Case</button>
+        <button class="swatch-btn" onclick="convertCase('sentence')">Sentence case</button>
+      </div>
+    </div>
+
+    <!-- AMBIENT SOUNDS -->
+    <div class="ep-section" id="ep-ambient-section">
+      <div class="ep-collapse-head" id="head-ep-ambient" onclick="toggleCollapse('ep-ambient')">
+        <div class="ep-label" style="margin-bottom:0">Ambient Sounds</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-ambient">
+        <div class="ambient-row">
+          <button id="ambient-btn-rain" onclick="toggleAmbient('rain')">🌧 Rain</button>
+          <button id="ambient-btn-cafe" onclick="toggleAmbient('cafe')">☕ Café</button>
+          <button id="ambient-btn-waves" onclick="toggleAmbient('waves')">🌊 Waves</button>
+        </div>
+        <div class="ambient-vol-row">
+          <label>Volume</label>
+          <input type="range" id="ambient-volume" min="0" max="100" value="35" oninput="setAmbientVolume(this.value)">
+        </div>
+      </div>
+    </div>
+
+    <!-- TYPEWRITER MODE -->
+    <div class="ep-section">
+      <div class="ep-label">Typewriter Mode</div>
+      <label class="typewriter-toggle-row">
+        <input type="checkbox" id="typewriter-toggle" onchange="toggleTypewriterMode(this.checked)">
+        Keep current line centered while typing
+      </label>
+    </div>
+
+    <!-- SAVE & DOWNLOAD -->
+    <div class="ep-section">
+      <div class="ep-label">Save &amp; Download</div>
+      <div class="sd-format-row">
+        <button class="swatch-btn selected" data-sdfmt="docx" onclick="setSaveDownloadFormat(this,'docx')">DOCX</button>
+        <button class="swatch-btn" data-sdfmt="pdf" onclick="setSaveDownloadFormat(this,'pdf')">PDF</button>
+        <button class="swatch-btn" data-sdfmt="txt" onclick="setSaveDownloadFormat(this,'txt')">TXT</button>
+        <button class="swatch-btn" data-sdfmt="md" onclick="setSaveDownloadFormat(this,'md')">MD</button>
+        <button class="swatch-btn" data-sdfmt="html" onclick="setSaveDownloadFormat(this,'html')">HTML</button>
+      </div>
+      <button class="save-download-btn" onclick="saveThenDownload()">💾 Save &amp; Download</button>
+    </div>
+
+    <!-- ══════ NEW API SECTIONS ══════ -->
+
+    <!-- AI WRITING COMPANION -->
+    <div class="ep-section" id="ep-ai-section">
+      <div class="ep-collapse-head" id="head-ep-ai" onclick="toggleCollapse('ep-ai')">
+        <div class="ep-label" style="margin-bottom:0">AI Companion <span class="ep-new-badge">NEW</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-ai">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Select text to transform, or it will use the whole document.
+        </div>
+        <div class="ai-mode-grid">
+          <button class="ai-mode-btn" onclick="aiTransform('formal')">📋 Formal</button>
+          <button class="ai-mode-btn" onclick="aiTransform('casual')">💬 Casual</button>
+          <button class="ai-mode-btn" onclick="aiTransform('poetic')">🌸 Poetic</button>
+          <button class="ai-mode-btn" onclick="aiTransform('shorter')">✂️ Shorter</button>
+          <button class="ai-mode-btn" onclick="aiTransform('longer')">📝 Expand</button>
+          <button class="ai-mode-btn" onclick="aiTransform('grammar')">✅ Fix Grammar</button>
+          <button class="ai-mode-btn" onclick="aiTransform('summarize')">📌 Summarise</button>
+          <button class="ai-mode-btn" onclick="aiTransform('bullets')">• Bullets</button>
+        </div>
+        <div id="ai-output" style="opacity:.5">Result will appear here…</div>
+        <button class="mini-btn" style="margin-top:8px" onclick="applyAIOutput()">↩ Apply to Document</button>
+        <div class="ep-label" style="margin-top:12px">OpenAI API Key <span style="font-size:.6rem;opacity:.5">(optional — enables real AI)</span></div>
+        <div class="ai-key-row">
+          <input type="password" id="ai-key-input" placeholder="sk-…" autocomplete="off">
+          <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="saveAIKey(document.getElementById('ai-key-input').value)">Save</button>
+        </div>
+        <div style="font-size:.6rem;color:rgba(247,244,238,.25);margin-top:4px">Key stored locally in your browser only.</div>
+      </div>
+    </div>
+
+    <!-- LIVE DICTIONARY -->
+    <div class="ep-section" id="ep-dictionary-section">
+      <div class="ep-collapse-head" id="head-ep-dictionary" onclick="toggleCollapse('ep-dictionary')">
+        <div class="ep-label" style="margin-bottom:0">Dictionary <span class="ep-new-badge">API</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-dictionary">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Define any English word instantly.
+        </div>
+        <div class="cover-search-row">
+          <input type="text" id="dict-input" placeholder="Type a word…" onkeydown="if(event.key==='Enter') lookupDefinition()">
+          <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="lookupDefinition()">Define</button>
+        </div>
+        <button class="mini-btn" onclick="lookupSelectedWord()" style="margin-bottom:4px">🔍 Define Selected Word</button>
+        <div id="dict-output"><div class="dict-empty">Enter a word above to look it up.</div></div>
+      </div>
+    </div>
+
+    <!-- LIVE THESAURUS -->
+    <div class="ep-section" id="ep-live-thesaurus-section">
+      <div class="ep-collapse-head" id="head-ep-live-thesaurus" onclick="toggleCollapse('ep-live-thesaurus')">
+        <div class="ep-label" style="margin-bottom:0">Live Thesaurus <span class="ep-new-badge">API</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-live-thesaurus">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Select a word in your document and click the button below.
+        </div>
+        <button class="mini-btn" onclick="showApiThesaurus(event)">📔 Look Up Selected Word</button>
+        <div style="font-size:.6rem;color:rgba(247,244,238,.25);margin-top:6px">Powered by Datamuse API</div>
+      </div>
+    </div>
+
+    <!-- WRITING PROMPTS -->
+    
+    <!-- POETRY & RHYMES -->
+    <div class="ep-section" id="ep-poetry-section">
+      <div class="ep-collapse-head" id="head-ep-poetry" onclick="toggleCollapse('ep-poetry')">
+        <div class="ep-label" style="margin-bottom:0">Poetry &amp; Rhymes <span class="ep-new-badge">API</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-poetry">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Find perfect rhymes, near rhymes, and word associations.
+        </div>
+        <div class="cover-search-row">
+          <input type="text" id="rhyme-input" placeholder="Type a word…" onkeydown="if(event.key==='Enter') searchRhymes()">
+          <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="searchRhymes()">Search</button>
+        </div>
+        <div class="ra-row" style="margin-top:6px">
+          <label>Type</label>
+          <select id="rhyme-type">
+            <option value="rel_rhy">Perfect Rhymes</option>
+            <option value="rel_nry">Near Rhymes</option>
+            <option value="rel_jja">Descriptive Adjectives</option>
+            <option value="rel_jjb">Described Nouns</option>
+            <option value="rel_trg">Word Associations</option>
+          </select>
+        </div>
+        <button class="mini-btn" onclick="searchSelectedWordForRhymes()" style="margin-bottom:8px;margin-top:4px">Check Selected Word</button>
+        <div id="rhyme-output"><div class="rhyme-empty">Enter a word above to see rhymes.</div></div>
+      </div>
+    </div>
+
+
+    <div class="ep-section" id="ep-prompts-section">
+      <div class="ep-collapse-head" id="head-ep-prompts" onclick="toggleCollapse('ep-prompts')">
+        <div class="ep-label" style="margin-bottom:0">Writing Prompts <span class="ep-new-badge">NEW</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-prompts">
+        <div id="prompt-output">Loading inspiration…</div>
+        <div class="prompt-actions">
+          <button class="mini-btn" onclick="fetchWritingPrompt()">✨ New Prompt</button>
+          <button class="mini-btn" onclick="insertPromptIntoEditor()">↩ Insert</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COVER IMAGE SEARCH -->
+    <div class="ep-section" id="ep-covers-section">
+      <div class="ep-collapse-head" id="head-ep-covers" onclick="toggleCollapse('ep-covers')">
+        <div class="ep-label" style="margin-bottom:0">Cover Images <span class="ep-new-badge">NEW</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-covers">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:6px">Search and insert beautiful photos.</div>
+        <div class="cover-search-row">
+          <input type="text" id="cover-search-input" placeholder="e.g. mountain, ocean…" onkeydown="if(event.key==='Enter') searchCoverImages()">
+          <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="searchCoverImages()">Search</button>
+        </div>
+        <div id="cover-image-grid"><div class="cover-loading">Click Search to find photos.</div></div>
+      </div>
+    </div>
+
+    <!-- CONTEXTUAL NEXT WORDS -->
+    <div class="ep-section" id="ep-context-section">
+      <div class="ep-collapse-head" id="head-ep-context" onclick="toggleCollapse('ep-context')">
+        <div class="ep-label" style="margin-bottom:0">Smart Next Word <span class="ep-new-badge">API</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-context">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Words that naturally follow what you last typed.
+        </div>
+        <div id="contextual-words"><span class="thes-chip" style="opacity:.4">Start typing…</span></div>
+        <div style="font-size:.6rem;color:rgba(247,244,238,.25);margin-top:6px">Powered by Datamuse API</div>
+      </div>
+    </div>
+
+
+    <!-- WIKIPEDIA RESEARCH -->
+    <div class="ep-section" id="ep-wiki-section">
+      <div class="ep-collapse-head" id="head-ep-wiki" onclick="toggleCollapse('ep-wiki')">
+        <div class="ep-label" style="margin-bottom:0">Wikipedia Research <span class="ep-new-badge">API</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-wiki">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Look up any topic and insert summaries or citations directly.
+        </div>
+        <div class="cover-search-row">
+          <input type="text" id="wiki-input" placeholder="e.g. Shakespeare, Black holes…">
+          <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="searchWikipedia()">Search</button>
+        </div>
+        <div id="wiki-output" style="margin-top:8px">
+          <div class="wiki-not-found">Enter a topic above to get started.</div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- BOOK SEARCH & CITATION -->
+    <div class="ep-section" id="ep-books-section">
+      <div class="ep-collapse-head" id="head-ep-books" onclick="toggleCollapse('ep-books')">
+        <div class="ep-label" style="margin-bottom:0">Book Search &amp; Citations <span class="ep-new-badge">API</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-books">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Search Open Library and insert MLA, APA, or Chicago citations.
+        </div>
+        <div class="cover-search-row" style="margin-bottom:6px">
+          <input type="text" id="books-input" placeholder="Title, author, or ISBN…" onkeydown="if(event.key==='Enter')searchBooks()">
+          <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="searchBooks()">Search</button>
+        </div>
+        <div class="ra-row" style="margin-bottom:8px">
+          <label>Search by</label>
+          <select id="books-search-type">
+            <option value="q">Keyword</option>
+            <option value="title">Title</option>
+            <option value="author">Author</option>
+            <option value="isbn">ISBN</option>
+          </select>
+        </div>
+        <div id="books-output">
+          <div class="wiki-not-found">Enter a book title or author above.</div>
+        </div>
+        <div style="font-size:.58rem;color:rgba(247,244,238,.22);margin-top:8px">Powered by Open Library · openlibrary.org</div>
+      </div>
+    </div>
+
+
+    <!-- ══ WORD FREQUENCY ANALYZER ══════════════════════════════ -->
+    <div class="ep-section" id="ep-wordfreq-section">
+      <div class="ep-collapse-head" id="head-ep-wordfreq" onclick="toggleCollapse('ep-wordfreq')">
+        <div class="ep-label" style="margin-bottom:0">Word Frequency &amp; Sentence Analysis</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-wordfreq">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Find overused words and analyze sentence length variety.
+        </div>
+        <div class="wf-tabs">
+          <button class="wf-tab active" id="wf-tab-freq"      onclick="wfSetTab('freq')">Word Frequency</button>
+          <button class="wf-tab"        id="wf-tab-sentences" onclick="wfSetTab('sentences')">Sentence Lengths</button>
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="wfSetTab(document.querySelector('.wf-tab.active')?.id?.replace('wf-tab-','') || 'freq')">Analyze Now</button>
+        <div id="wordfreq-output"><div class="wf-empty">Click Analyze Now to inspect your document.</div></div>
+        <button id="wf-clear-btn" class="mini-btn" style="display:none;margin-top:6px;width:100%" onclick="clearWordHighlights()">Clear Highlights</button>
+      </div>
+    </div>
+
+    <!-- ══ PASSIVE VOICE & WEAK VERB DETECTOR ═══════════════════ -->
+    <div class="ep-section" id="ep-passivevoice-section">
+      <div class="ep-collapse-head" id="head-ep-passivevoice" onclick="toggleCollapse('ep-passivevoice')">
+        <div class="ep-label" style="margin-bottom:0">Passive Voice &amp; Weak Verbs</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-passivevoice">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Scan for passive constructions, weak verbs, and adverb overuse.
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="analyzePassiveVoice()">Scan Now</button>
+        <div id="pv-output"><div class="pv-empty">Click Scan Now to inspect your document.</div></div>
+      </div>
+    </div>
+
+    <!-- ══ CLICHÉ & FILLER PHRASE DETECTOR ═══════════════════════ -->
+    <div class="ep-section" id="ep-cliche-section">
+      <div class="ep-collapse-head" id="head-ep-cliche" onclick="toggleCollapse('ep-cliche')">
+        <div class="ep-label" style="margin-bottom:0">Cliché &amp; Filler Detector</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-cliche">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Find tired phrases and filler words worth reconsidering.
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="analyzeCliches()">Scan Now</button>
+        <div id="cl-output"><div class="cl-empty">Click Scan Now to inspect your document.</div></div>
+      </div>
+    </div>
+
+    <!-- ══ FOCUS MODE & TYPEWRITER SCROLLING ═════════════════════ -->
+    <div class="ep-section" id="ep-focusmode-section">
+      <div class="ep-collapse-head" id="head-ep-focusmode" onclick="toggleCollapse('ep-focusmode')">
+        <div class="ep-label" style="margin-bottom:0">Focus Mode</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-focusmode">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Dim the interface and keep your caret centered as you write.
+        </div>
+        <div class="fm-row">
+          <button class="mini-btn" id="fm-focus-btn" onclick="fmToggleFocusMode()">🌒 Focus Mode</button>
+          <button class="mini-btn" id="fm-typewriter-btn" onclick="fmToggleTypewriterMode()">⌨ Typewriter Scroll</button>
+        </div>
+        <div class="fm-hint">Press Esc to exit Focus Mode at any time.</div>
+      </div>
+    </div>
+
+    <!-- ══ DIALOGUE & PUNCTUATION CHECKER ═════════════════════════ -->
+    <div class="ep-section" id="ep-dialogue-section">
+      <div class="ep-collapse-head" id="head-ep-dialogue" onclick="toggleCollapse('ep-dialogue')">
+        <div class="ep-label" style="margin-bottom:0">Dialogue &amp; Punctuation Checker</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-dialogue">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Catch unbalanced quotes, said-bookisms, and stray punctuation.
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="analyzeDialogue()">Check Now</button>
+        <div id="dlg-output"><div class="dlg-empty">Click Check Now to inspect your dialogue.</div></div>
+      </div>
+    </div>
+
+    <!-- ══ PLOT TWIST & IDEA GENERATOR (OFFLINE) ══════════════════ -->
+    <div class="ep-section" id="ep-ideagen-section">
+      <div class="ep-collapse-head" id="head-ep-ideagen" onclick="toggleCollapse('ep-ideagen')">
+        <div class="ep-label" style="margin-bottom:0">Plot Twist Generator <span class="ep-new-badge">OFFLINE</span></div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-ideagen">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Instant twist, conflict, setting, and scene prompts — no API required.
+        </div>
+        <div id="idea-output"><div class="idea-card"><div class="idea-label">Ready</div><div class="idea-text">Click Generate to get a twist, a conflict, a setting seed, and a scene prompt.</div></div></div>
+        <div class="idea-actions">
+          <button class="mini-btn" onclick="generateStoryIdea()">🎲 Generate</button>
+          <button class="mini-btn" onclick="insertStoryIdeaIntoEditor()">↩ Insert</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ SNIPPETS MANAGER ═════════════════════════════════════ -->
+    <div class="ep-section" id="ep-snippets-section">
+      <div class="ep-collapse-head" id="head-ep-snippets" onclick="toggleCollapse('ep-snippets')">
+        <div class="ep-label" style="margin-bottom:0">Text Snippets &amp; Templates</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-snippets">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Save reusable text blocks and insert them with one click.
+        </div>
+        <div class="cover-search-row" style="margin-bottom:8px">
+          <input type="text" id="snippets-search" placeholder="Filter snippets…" oninput="filterSnippets()">
+          <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="saveSelectionAsSnippet()">+ From selection</button>
+        </div>
+        <div id="snippets-list"></div>
+        <details style="margin-top:10px">
+          <summary style="font-size:.76rem;cursor:pointer;color:rgba(247,244,238,.55)">＋ Add new snippet</summary>
+          <div style="margin-top:8px;display:flex;flex-direction:column;gap:5px">
+            <input type="text" id="snip-new-name" placeholder="Snippet name…" style="font-size:.8rem;padding:5px 8px;border:1px solid var(--border,#555);border-radius:4px;background:var(--bg2,#333);color:inherit">
+            <input type="text" id="snip-new-tag"  placeholder="Tag (e.g. fiction, letter)…" style="font-size:.8rem;padding:5px 8px;border:1px solid var(--border,#555);border-radius:4px;background:var(--bg2,#333);color:inherit">
+            <textarea id="snip-new-text" rows="3" placeholder="Snippet text…" style="font-size:.8rem;padding:5px 8px;border:1px solid var(--border,#555);border-radius:4px;background:var(--bg2,#333);color:inherit;resize:vertical;font-family:inherit"></textarea>
+            <button class="mini-btn" onclick="addSnippetFromForm()">Save Snippet</button>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <!-- ══ CHARACTER GENERATOR ══════════════════════════════════ -->
+    <div class="ep-section" id="ep-characters-section">
+      <div class="ep-collapse-head" id="head-ep-characters" onclick="toggleCollapse('ep-characters')">
+        <div class="ep-label" style="margin-bottom:0">Character &amp; Name Generator</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-characters">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Generate character names and full character sheets for fiction.
+        </div>
+        <div class="ra-row" style="margin-bottom:8px">
+          <label>Genre</label>
+          <select id="char-genre">
+            <option value="fantasy">Fantasy</option>
+            <option value="scifi">Sci-Fi</option>
+            <option value="historical">Historical</option>
+            <option value="modern">Modern / Contemporary</option>
+          </select>
+        </div>
+        <span id="char-name-result">—</span>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button class="mini-btn" style="flex:1" onclick="generateCharacterName()">New Name</button>
+          <button class="mini-btn" style="flex:1" onclick="generateFullCharacter()">Full Character</button>
+        </div>
+        <div id="char-sheet-preview"></div>
+        <div style="margin-top:10px;font-size:.74rem;color:rgba(247,244,238,.45)">Saved Cast</div>
+        <div id="char-saved-list"></div>
+      </div>
+    </div>
+
+    <!-- ══ SCRATCHPAD ════════════════════════════════════════════ -->
+    <div class="ep-section" id="ep-scratchpad-section">
+      <div class="ep-collapse-head" id="head-ep-scratchpad" onclick="toggleCollapse('ep-scratchpad')">
+        <div class="ep-label" style="margin-bottom:0">Scratchpad &amp; Side Notes</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-scratchpad">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:6px">
+          Jot ideas, to-dos, or research notes separate from your document.
+        </div>
+        <div class="scratch-tabs-wrap" id="scratch-tabs"></div>
+        <div class="scratch-area" id="scratch-area">
+          <input  type="text" id="scratch-title" placeholder="Note title…" oninput="onScratchInput()">
+          <textarea id="scratch-body" rows="6" placeholder="Your notes here…" oninput="onScratchInput()"></textarea>
+          <div class="scratch-footer">
+            <span id="scratch-wc">0 words</span>
+            <div class="scratch-color-wrap">
+              🎨 <input type="color" id="scratch-color" value="#fff9c4" onchange="onScratchColorChange()" title="Note color">
+            </div>
+            <button class="mini-btn" style="padding:3px 8px;font-size:.72rem" onclick="moveScratchToEditor()">→ Editor</button>
+            <button class="mini-btn" style="padding:3px 8px;font-size:.72rem;opacity:.65" onclick="deleteCurrentScratchNote()">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══ WRITING GOALS & STREAK ═══════════════════════════════ -->
+    <div class="ep-section" id="ep-goals-section">
+      <div class="ep-collapse-head" id="head-ep-goals" onclick="toggleCollapse('ep-goals')">
+        <div class="ep-label" style="margin-bottom:0">Writing Goals &amp; Streak</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-goals">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Track daily word goals, streaks, and your 30-day writing habit.
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="renderGoalsPanel()">Refresh</button>
+        <div id="goals-output"><div style="font-size:.75rem;opacity:.4;text-align:center;padding:10px">Click Refresh to load your stats.</div></div>
+      </div>
+    </div>
+
+    <!-- ══ FOCUS TIMER ═══════════════════════════════════════════ -->
+    <div class="ep-section" id="ep-focustimer-section">
+      <div class="ep-collapse-head" id="head-ep-focustimer" onclick="toggleCollapse('ep-focustimer')">
+        <div class="ep-label" style="margin-bottom:0">Focus Timer</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-focustimer">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Run Pomodoro-style focus and break intervals while you write.
+        </div>
+        <div id="focustimer-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ STORY PROMPT BANK ═══════════════════════════════════════ -->
+    <div class="ep-section" id="ep-storyprompts-section">
+      <div class="ep-collapse-head" id="head-ep-storyprompts" onclick="toggleCollapse('ep-storyprompts')">
+        <div class="ep-label" style="margin-bottom:0">Story Prompt Bank</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-storyprompts">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Get a random prompt by genre to spark your next scene or essay.
+        </div>
+        <div class="ra-row" style="margin-bottom:8px">
+          <label>Genre</label>
+          <select id="prompt-genre">
+            <option value="fantasy">Fantasy</option>
+            <option value="scifi">Sci-Fi</option>
+            <option value="mystery">Mystery</option>
+            <option value="romance">Romance</option>
+            <option value="literary">Literary Fiction</option>
+            <option value="horror">Horror</option>
+            <option value="essay">Essay / Nonfiction</option>
+          </select>
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="generateWritingPrompt()">🎲 Generate Prompt</button>
+        <div id="prompt-result"></div>
+        <div style="margin-top:12px;font-size:.74rem;color:rgba(247,244,238,.45)">Saved Favorites</div>
+        <div id="prompt-favorites"></div>
+      </div>
+    </div>
+
+    <!-- ══ CHAPTER & SCENE OUTLINE ═════════════════════════════════ -->
+    <div class="ep-section" id="ep-chapteroutline-section">
+      <div class="ep-collapse-head" id="head-ep-chapteroutline" onclick="toggleCollapse('ep-chapteroutline')">
+        <div class="ep-label" style="margin-bottom:0">Chapter &amp; Scene Outline</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-chapteroutline">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Plan chapters and scenes separately from your manuscript.
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <button class="mini-btn" style="flex:1;margin-right:6px" onclick="addOutlineChapter()">+ Add Chapter</button>
+          <span id="outline-progress" style="font-size:.68rem;opacity:.5;white-space:nowrap"></span>
+        </div>
+        <div id="outline-output"></div>
+        <button class="mini-btn" style="width:100%;margin-top:6px" onclick="exportOutlineToEditor()">→ Insert Outline into Document</button>
+      </div>
+    </div>
+
+    <!-- ══ MOOD BOARD ════════════════════════════════════════════ -->
+    <div class="ep-section" id="ep-moodboard-section">
+      <div class="ep-collapse-head" id="head-ep-moodboard" onclick="toggleCollapse('ep-moodboard')">
+        <div class="ep-label" style="margin-bottom:0">Inspiration Mood Board</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-moodboard">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Collect quotes, colors, and notes that capture the mood of your project.
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input type="text" id="mood-new-text" placeholder="Add a quote or note..."
+            style="flex:1;font-size:.8rem;padding:5px 8px;border:1px solid rgba(255,255,255,.15);border-radius:4px;background:rgba(255,255,255,.06);color:inherit">
+          <input type="color" id="mood-new-color" value="#e2c373" title="Accent color" style="width:34px;padding:0;border:none;border-radius:4px">
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:10px" onclick="addMoodItem()">+ Add to Board</button>
+        <div id="moodboard-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ PROSE STYLE & TONE ═══════════════════════════════════ -->
+    <div class="ep-section" id="ep-tone-section">
+      <div class="ep-collapse-head" id="head-ep-tone" onclick="toggleCollapse('ep-tone')">
+        <div class="ep-label" style="margin-bottom:0">Prose Style &amp; Tone</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-tone">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Flag passive voice, adverb overuse, filter words, and clichés.
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="analyzeTone()">Analyze Prose</button>
+        <div id="tone-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ WORLD BUILDING ════════════════════════════════════════ -->
+    <div class="ep-section" id="ep-worldbuilding-section">
+      <div class="ep-collapse-head" id="head-ep-worldbuilding" onclick="toggleCollapse('ep-worldbuilding')">
+        <div class="ep-label" style="margin-bottom:0">World Building</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-worldbuilding">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Generate locations, factions, and artifacts, and keep a world bible.
+        </div>
+        <div class="ra-row" style="margin-bottom:8px">
+          <label>Type</label>
+          <select id="wb-kind">
+            <option value="location">Location</option>
+            <option value="faction">Faction</option>
+            <option value="artifact">Artifact</option>
+          </select>
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="generateWorldElement()">🎲 Generate</button>
+        <div id="wb-result"></div>
+        <div style="margin-top:12px;font-size:.74rem;color:rgba(247,244,238,.45)">World Bible</div>
+        <div id="wb-bible-list"></div>
+      </div>
+    </div>
+
+    <!-- ══ QUERY LETTER & SYNOPSIS ════════════════════════════════ -->
+    <div class="ep-section" id="ep-querytools-section">
+      <div class="ep-collapse-head" id="head-ep-querytools" onclick="toggleCollapse('ep-querytools')">
+        <div class="ep-label" style="margin-bottom:0">Query Letter &amp; Synopsis</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-querytools">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Assemble a standard agent query letter from your book details.
+        </div>
+        <div id="querytools-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ BACKUP & RESTORE ══════════════════════════════════════ -->
+    <div class="ep-section" id="ep-backup-section">
+      <div class="ep-collapse-head" id="head-ep-backup" onclick="toggleCollapse('ep-backup')">
+        <div class="ep-label" style="margin-bottom:0">Backup &amp; Restore</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-backup">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Download all Inkwell data on this device, or restore from a backup file.
+        </div>
+        <div id="backup-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ CITATIONS & BIBLIOGRAPHY ═════════════════════════════ -->
+    <div class="ep-section" id="ep-citations-section">
+      <div class="ep-collapse-head" id="head-ep-citations" onclick="toggleCollapse('ep-citations')">
+        <div class="ep-label" style="margin-bottom:0">Citations &amp; Bibliography</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-citations">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Manage sources in APA, MLA, or Chicago style and insert them into your document.
+        </div>
+        <div id="citations-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ MARGIN NOTES / ANNOTATIONS ═══════════════════════════ -->
+    <div class="ep-section" id="ep-annotations-section">
+      <div class="ep-collapse-head" id="head-ep-annotations" onclick="toggleCollapse('ep-annotations')">
+        <div class="ep-label" style="margin-bottom:0">Margin Notes &amp; Annotations</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-annotations">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Pin colour-coded side notes to your document — research, ideas, fixes, to-dos.
+        </div>
+        <div id="annotations-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ PLOTLINES / STORY STRUCTURE ══════════════════════════ -->
+    <div class="ep-section" id="ep-plotlines-section">
+      <div class="ep-collapse-head" id="head-ep-plotlines" onclick="toggleCollapse('ep-plotlines')">
+        <div class="ep-label" style="margin-bottom:0">Plotlines &amp; Story Structure</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-plotlines">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Kanban-style board for tracking scenes and story beats. Drag between stages.
+        </div>
+        <div id="plotlines-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ DEEP READABILITY ANALYSIS ═══════════════════════════ -->
+    <div class="ep-section" id="ep-readability2-section">
+      <div class="ep-collapse-head" id="head-ep-readability2" onclick="toggleCollapse('ep-readability2')">
+        <div class="ep-label" style="margin-bottom:0">Deep Readability Analysis</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-readability2">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Flesch-Kincaid, Gunning Fog, passive voice, adverb count, and cliché detector.
+        </div>
+        <button class="mini-btn" style="width:100%;margin-bottom:8px" onclick="runReadabilityAnalysis()">Analyze Now</button>
+        <div id="readability2-output"><div style="font-size:.75rem;opacity:.4;text-align:center;padding:10px">Click Analyze Now.</div></div>
+      </div>
+    </div>
+
+    <!-- ══ EXTENDED TEMPLATES LIBRARY ═══════════════════════════ -->
+    <div class="ep-section" id="ep-templates2-section">
+      <div class="ep-collapse-head" id="head-ep-templates2" onclick="toggleCollapse('ep-templates2')">
+        <div class="ep-label" style="margin-bottom:0">Templates Library</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-templates2">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          Fiction, essays, business, academic, screenwriting, and personal templates.
+        </div>
+        <div id="templates2-output"></div>
+      </div>
+    </div>
+
+    <!-- ══ KEYBOARD SHORTCUT MANAGER ════════════════════════════ -->
+    <div class="ep-section" id="ep-keyboard-section">
+      <div class="ep-collapse-head" id="head-ep-keyboard" onclick="toggleCollapse('ep-keyboard')">
+        <div class="ep-label" style="margin-bottom:0">Keyboard Shortcuts</div>
+        <span class="chev">▶</span>
+      </div>
+      <div class="ep-collapse-body" id="body-ep-keyboard">
+        <div style="font-size:.68rem;color:rgba(247,244,238,.4);margin-bottom:8px">
+          View all shortcuts and create custom key bindings for snippets or commands.
+        </div>
+        <div id="keyboard-output"></div>
+      </div>
+    </div>
+
+  </div><!-- /export-panel -->
+
+
+</div><!-- /layout -->
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <div>Inkwell</div>
+  <div>Auto-save: <span id="save-indicator">saved</span></div>
+  <div id="statusbar-words">0 words</div>
+  <div id="save-status"></div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- ADDED: Emoji popover, word suggestor box, smart-emoji nudge -->
+<div id="emoji-popover"></div>
+<div id="word-suggest-box"></div>
+<div id="emoji-nudge"></div>
+
+<!-- ADDED: More editing tool popovers -->
+<div id="color-popover"></div>
+<div id="table-grid-popover"></div>
+<div id="specialchar-popover"></div>
+<div id="find-replace-bar">
+  <input type="text" id="fr-find" placeholder="Find…" />
+  <input type="text" id="fr-replace" placeholder="Replace with…" />
+  <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="findNext()">Next</button>
+  <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="replaceOne()">Replace</button>
+  <button class="mini-btn" style="width:auto;padding:6px 10px" onclick="replaceAll()">Replace All</button>
+  <span id="fr-count" style="font-size:.68rem;color:rgba(247,244,238,.4)"></span>
+  <button class="mini-btn" style="width:auto;padding:6px 10px;margin-left:auto" onclick="toggleFindReplace()">✕</button>
+</div>
+
+<!-- ADDED (round 3): Focus mode hint, shortcuts modal, template modal -->
+<div id="focus-exit-hint">Press <b>Esc</b> or click ◎ to exit Focus Mode</div>
+
+<div class="iw-modal-overlay" id="shortcuts-modal-overlay">
+  <div class="iw-modal">
+    <div class="iw-modal-head">
+      <h3>Keyboard Shortcuts</h3>
+      <button class="iw-modal-close" onclick="toggleShortcutsModal()">✕</button>
+    </div>
+    <div class="shortcut-row"><span>Save</span><span class="kbd">Ctrl/⌘ + S</span></div>
+    <div class="shortcut-row"><span>Export as .txt</span><span class="kbd">Ctrl/⌘ + E</span></div>
+    <div class="shortcut-row"><span>Find &amp; Replace</span><span class="kbd">Ctrl/⌘ + F</span></div>
+    <div class="shortcut-row"><span>Insert Link</span><span class="kbd">Ctrl/⌘ + K</span></div>
+    <div class="shortcut-row"><span>Save version snapshot</span><span class="kbd">Ctrl/⌘ + Alt + S</span></div>
+    <div class="shortcut-row"><span>Toggle Focus Mode</span><span class="kbd">Ctrl/⌘ + .</span></div>
+    <div class="shortcut-row"><span>Bold / Italic / Underline</span><span class="kbd">Ctrl/⌘ + B / I / U</span></div>
+    <div class="shortcut-row"><span>Undo / Redo</span><span class="kbd">Ctrl/⌘ + Z / Y</span></div>
+    <div class="shortcut-row"><span>Exit Focus Mode</span><span class="kbd">Esc</span></div>
+    <div class="shortcut-row"><span>Show this dialog</span><span class="kbd">Ctrl/⌘ + /</span></div>
+  </div>
+</div>
+
+<div class="iw-modal-overlay" id="template-modal-overlay">
+  <div class="iw-modal">
+    <div class="iw-modal-head">
+      <h3>Start From a Template</h3>
+      <button class="iw-modal-close" onclick="toggleTemplateModal()">✕</button>
+    </div>
+    <div style="font-size:.72rem;color:rgba(247,244,238,.45);margin-bottom:12px">Inserts starter content at the top of your document — nothing existing is deleted.</div>
+    <div class="tpl-grid">
+      <button class="tpl-card" onclick="applyTemplate('letter')"><div class="tpl-icon">✉️</div><div class="tpl-name">Letter</div><div class="tpl-desc">Formal correspondence</div></button>
+      <button class="tpl-card" onclick="applyTemplate('essay')"><div class="tpl-icon">📝</div><div class="tpl-name">Essay</div><div class="tpl-desc">Intro / body / conclusion</div></button>
+      <button class="tpl-card" onclick="applyTemplate('story')"><div class="tpl-icon">📖</div><div class="tpl-name">Short Story</div><div class="tpl-desc">Title, chapter, scene break</div></button>
+      <button class="tpl-card" onclick="applyTemplate('resume')"><div class="tpl-icon">💼</div><div class="tpl-name">Résumé</div><div class="tpl-desc">Experience &amp; skills</div></button>
+      <button class="tpl-card" onclick="applyTemplate('meeting')"><div class="tpl-icon">🗒️</div><div class="tpl-name">Meeting Notes</div><div class="tpl-desc">Agenda &amp; action items</div></button>
+      <button class="tpl-card" onclick="applyTemplate('journal')"><div class="tpl-icon">📔</div><div class="tpl-name">Journal Entry</div><div class="tpl-desc">Dated daily reflection</div></button>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div id="loading-msg">Preparing export…</div>
+</div>
+
+<!-- ADDED (round 4): Document Library modal, Thesaurus popover, hidden image input -->
+<div class="iw-modal-overlay" id="doclib-modal-overlay">
+  <div class="iw-modal">
+    <div class="iw-modal-head">
+      <h3>Document Library</h3>
+      <button class="iw-modal-close" onclick="toggleDocLibraryModal()">✕</button>
+    </div>
+    <button class="mini-btn" style="margin-bottom:12px" onclick="saveCurrentToLibrary(true)">💾 Save current document to library</button>
+    <div id="doclib-list"><div class="doclib-empty">No saved documents yet.</div></div>
+  </div>
+</div>
+
+<div id="thesaurus-popover"></div>
+<input type="file" id="image-file-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)">
+
+
+<script src="js/core.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/stats.js"></script>
+<script src="js/editor.js"></script>
+<script src="js/export.js"></script>
+<script src="js/autocomplete.js"></script>
+<script src="js/translator.js"></script>
+<script src="js/readaloud.js"></script>
+<script src="js/widgets.js"></script>
+<script src="js/api.js"></script>
+<script src="js/research.js"></script>
+<script src="js/books.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/rhyme.js"></script>
+<script src="js/grammar.js"></script>
+<script src="js/timemachine.js"></script>
+<script src="js/mindmap.js"></script>
+<script src="js/thesaurus.js"></script>
+<script src="js/wordfreq.js"></script>
+<script src="js/snippets.js"></script>
+<script src="js/characters.js"></script>
+<script src="js/scratchpad.js"></script>
+<script src="js/goals.js"></script>
+<script src="js/citations.js"></script>
+<script src="js/notes.js"></script>
+<script src="js/plotlines.js"></script>
+<script src="js/readability.js"></script>
+<script src="js/templates2.js"></script>
+<script src="js/keyboard.js"></script>
+<script src="js/passivevoice.js"></script>
+<script src="js/cliche.js"></script>
+<script src="js/focusmode.js"></script>
+<script src="js/dialogue.js"></script>
+<script src="js/ideagen.js"></script>
+<script src="js/focustimer.js"></script>
+<script src="js/prompts.js"></script>
+<script src="js/outline.js"></script>
+<script src="js/moodboard.js"></script>
+<script src="js/tone.js"></script>
+<script src="js/worldbuilding.js"></script>
+<script src="js/querytools.js"></script>
+<script src="js/backup.js"></script>
+<script>
+  // Focus editor on load
+  if (typeof editor !== 'undefined') {
+    editor.focus();
+  }
+  // Initialize new panels
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof renderCitationsPanel    === 'function') renderCitationsPanel();
+    if (typeof renderAnnotationsPanel  === 'function') renderAnnotationsPanel();
+    if (typeof renderPlotlines         === 'function') renderPlotlines();
+    if (typeof renderExtendedTemplates === 'function') renderExtendedTemplates();
+    if (typeof renderKeyboardPanel     === 'function') renderKeyboardPanel();
+    if (typeof renderFocusTimer         === 'function') renderFocusTimer();
+    if (typeof renderPromptsPanel        === 'function') renderPromptsPanel();
+    if (typeof renderOutline             === 'function') renderOutline();
+    if (typeof renderMoodboard           === 'function') renderMoodboard();
+    if (typeof renderTonePanel           === 'function') renderTonePanel();
+    if (typeof renderWorldbuildingPanel  === 'function') renderWorldbuildingPanel();
+    if (typeof renderQueryForm           === 'function') renderQueryForm();
+    if (typeof renderBackupPanel         === 'function') renderBackupPanel();
+  });
+  // Also init panels that need it immediately (DOMContentLoaded may have already fired)
+  setTimeout(() => {
+    if (typeof renderCitationsPanel    === 'function') renderCitationsPanel();
+    if (typeof renderAnnotationsPanel  === 'function') renderAnnotationsPanel();
+    if (typeof renderPlotlines         === 'function') renderPlotlines();
+    if (typeof renderExtendedTemplates === 'function') renderExtendedTemplates();
+    if (typeof renderKeyboardPanel     === 'function') renderKeyboardPanel();
+    if (typeof renderFocusTimer         === 'function') renderFocusTimer();
+    if (typeof renderPromptsPanel        === 'function') renderPromptsPanel();
+    if (typeof renderOutline             === 'function') renderOutline();
+    if (typeof renderMoodboard           === 'function') renderMoodboard();
+    if (typeof renderTonePanel           === 'function') renderTonePanel();
+    if (typeof renderWorldbuildingPanel  === 'function') renderWorldbuildingPanel();
+    if (typeof renderQueryForm           === 'function') renderQueryForm();
+    if (typeof renderBackupPanel         === 'function') renderBackupPanel();
+  }, 100);
+</script>
+</body>
+</html>
